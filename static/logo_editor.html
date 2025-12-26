@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logo编辑器 - 批量添加品牌Logo</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/logo_editor.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+</head>
+<body>
+    <div class="logo-editor-container">
+        <!-- 顶部工具栏 -->
+        <div class="logo-editor-header">
+            <button class="back-btn" onclick="window.location.href='index.html'">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                </svg>
+                返回首页
+            </button>
+            <h1 class="editor-title">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                </svg>
+                批量Logo编辑器
+            </h1>
+            <div class="header-actions">
+                <button class="btn-secondary" onclick="resetAll()" title="清空所有图片和设置">
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path fill="currentColor" d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                    </svg>
+                    重置
+                </button>
+                <button class="btn-primary" onclick="exportAll()" id="export-btn" disabled>
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path fill="currentColor" d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/>
+                    </svg>
+                    批量导出ZIP
+                </button>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="logo-editor-main">
+            <!-- 左侧：图片列表 -->
+            <div class="image-list-panel">
+                <div class="panel-header">
+                    <h3>产品图片</h3>
+                    <span class="image-count" id="image-count">0张</span>
+                </div>
+                
+                <!-- 上传区域 -->
+                <div class="upload-zone" id="upload-zone">
+                    <input type="file" id="image-upload-input" accept="image/*" multiple style="display: none;">
+                    <svg viewBox="0 0 24 24" width="48" height="48">
+                        <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    <p>点击或拖拽上传图片</p>
+                    <span class="upload-hint">支持批量上传 JPG/PNG</span>
+                </div>
+
+                <!-- 图片缩略图列表 -->
+                <div class="image-thumbnails" id="image-thumbnails">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 中间：预览画布 -->
+            <div class="canvas-panel">
+                <div class="canvas-header">
+                    <h3>预览效果</h3>
+                    <div class="canvas-tools">
+                        <button class="tool-btn" onclick="zoomIn()" title="放大">
+                            <svg viewBox="0 0 24 24" width="18" height="18">
+                                <path fill="currentColor" d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/><path fill="currentColor" d="M12 10h-2v2H9v-2H7V9h2V7h1v2h2v1z"/>
+                            </svg>
+                        </button>
+                        <input type="text" class="zoom-level-input" id="zoom-level" value="100%" title="点击输入缩放比例">
+                        <button class="tool-btn" onclick="zoomOut()" title="缩小">
+                            <svg viewBox="0 0 24 24" width="18" height="18">
+                                <path fill="currentColor" d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/><path fill="currentColor" d="M7 9h5v1H7z"/>
+                            </svg>
+                        </button>
+                        <button class="tool-btn" onclick="resetZoom()" title="重置缩放">
+                            <svg viewBox="0 0 24 24" width="18" height="18">
+                                <path fill="currentColor" d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                            </svg>
+                        </button>
+                        <div class="tool-divider"></div>
+                        <button class="tool-btn btn-download" onclick="downloadCurrentImage()" id="download-current-btn" title="下载当前预览图片" disabled>
+                            <svg viewBox="0 0 24 24" width="18" height="18">
+                                <path fill="currentColor" d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/>
+                            </svg>
+                            下载当前
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="canvas-wrapper" id="canvas-wrapper">
+                    <canvas id="logo-canvas"></canvas>
+                    <div class="canvas-placeholder" id="canvas-placeholder">
+                        <!-- 占位符已简化，提示信息移至左侧上传区 -->
+                    </div>
+                </div>
+
+                <div class="canvas-info" id="canvas-info">
+                    <span id="image-name">-</span>
+                    <span id="image-size">-</span>
+                    <span id="image-spec-match" class="spec-badge">-</span>
+                </div>
+            </div>
+
+            <!-- 右侧：Logo控制面板 -->
+            <div class="control-panel">
+                <div class="panel-header">
+                    <h3>Logo设置</h3>
+                    <span class="help-icon" title="所有设置将应用到全部图片">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                        </svg>
+                    </span>
+                </div>
+
+                <!-- 选择器区域 -->
+                <div class="control-section">
+                    <label class="control-label">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        选择平台
+                    </label>
+                    <select class="control-select" id="platform-select" onchange="onPlatformChange()">
+                        <option value="">请选择平台</option>
+                        <option value="天猫">天猫</option>
+                        <option value="京东">京东</option>
+                        <option value="拼多多">拼多多</option>
+                    </select>
+                    <div class="platform-hint" id="platform-hint"></div>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path fill="currentColor" d="M18 13v-2h-2V9h-2v2h-2v2h2v2h2v-2h2zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                        </svg>
+                        选择款式
+                    </label>
+                    <select class="control-select" id="style-select" onchange="onStyleChange()" disabled>
+                        <option value="">请先选择平台</option>
+                    </select>
+                    <div class="style-hint" id="style-hint"></div>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                        </svg>
+                        选择尺寸
+                    </label>
+                    <select class="control-select" id="size-select" onchange="onSizeChange()" disabled>
+                        <option value="">请先选择款式</option>
+                    </select>
+                    <div class="size-hint" id="size-hint"></div>
+                </div>
+
+                <!-- Logo样式选择 -->
+                <div class="control-section" id="logo-style-section" style="display: none;">
+                    <label class="control-label">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                        Logo样式
+                    </label>
+                    <div class="logo-style-options" id="logo-style-options">
+                        <!-- 动态生成Logo图片缩略图 -->
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 参数调节 -->
+                <div class="control-section">
+                    <label class="control-label">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                        </svg>
+                        Logo尺寸
+                    </label>
+                    <div class="slider-control">
+                        <input type="range" class="slider" id="logo-size-slider" min="5" max="200" value="100" oninput="onLogoSizeChange(this.value)">
+                        <input type="number" class="slider-input" id="logo-size-input" min="5" max="200" value="100" oninput="onLogoSizeChange(this.value)">
+                        <span class="slider-unit">%</span>
+                    </div>
+                    <div class="hint-text" style="font-size: 12px; color: #999; margin-top: 4px;">
+                        100% = 原Logo尺寸，向左缩小，向右放大
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path fill="currentColor" d="M3 9h14V7H3v2zm0 4h14v-2H3v2zm0 4h14v-2H3v2zm16 0h2v-2h-2v2zm0-10v2h2V7h-2zm0 6h2v-2h-2v2z"/>
+                        </svg>
+                        水平边距
+                    </label>
+                    <div class="slider-control">
+                        <input type="range" class="slider" id="margin-x-slider" min="0" max="1500" value="20" oninput="onMarginChange()">
+                        <input type="number" class="slider-input" id="margin-x-input" min="0" max="1500" value="20" oninput="onMarginChange()">
+                        <span class="slider-unit">px</span>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <label class="control-label">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path fill="currentColor" d="M9 3h6v14H9z M7 17h10v4H7z"/>
+                        </svg>
+                        垂直边距
+                    </label>
+                    <div class="slider-control">
+                        <input type="range" class="slider" id="margin-y-slider" min="0" max="1500" value="20" oninput="onMarginChange()">
+                        <input type="number" class="slider-input" id="margin-y-input" min="0" max="1500" value="20" oninput="onMarginChange()">
+                        <span class="slider-unit">px</span>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 批量操作 -->
+                <div class="control-section">
+                    <button class="btn-block btn-primary" onclick="applyToAll()" id="apply-all-btn" disabled>
+                        <svg viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        应用到全部图片
+                    </button>
+                    <div class="hint-text">当前设置将应用到所有已上传的图片</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading-overlay" id="loading-overlay" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p class="loading-text" id="loading-text">处理中...</p>
+        </div>
+    </div>
+
+    <script src="js/logo_editor.js"></script>
+</body>
+</html>
+

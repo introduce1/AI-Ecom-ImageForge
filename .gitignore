@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 上传的图片文件（不应该提交到仓库）
+static/uploads/
+static/temp/
+
+# 视频文件（通常很大）
+static/videos/**/*.mp4
+static/videos/**/*.backup
+
+# 日志文件
+*.log
+
+# 环境变量
+.env
+.env.local
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 工作区配置（可选，如果不想提交）
+# Agent.code-workspace
+

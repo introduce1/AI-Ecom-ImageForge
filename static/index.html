@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>AI 影像工作室</title>
+    <link rel="stylesheet" href="css/style.css?v=2.6">
+    <script src="js/app.js?v=2.6"></script>
+    <script src="js/text_editor.js?v=1.0"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+</head>
+<body>
+
+    <!-- 左侧导航栏 -->
+    <div class="app-sidebar">
+        <div class="sidebar-header">
+            <img src="logo.png" alt="Logo" class="sidebar-logo">
+            <span class="sidebar-title">AI影像工作室</span>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" onclick="showPage('home'); return false;">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                <span>首页</span>
+            </a>
+            
+            <div class="nav-section-title">历史记录</div>
+            <a href="#" class="nav-item" onclick="showPage('history'); return false;">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                <span>处理记录</span>
+            </a>
+            
+            <a href="#" class="nav-item" onclick="showPage('chat'); return false;">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                <span>对话记录</span>
+            </a>
+        </nav>
+    </div>
+
+    <div class="main-container">
+        <div id="home-page" class="page active">
+            <div class="hero-container">
+                <h1 class="hero-title">和AI聊聊，你想要什么设计？ <span class="agent-badge">AGENT</span></h1>
+                
+                <!-- AI 对话输入区域 -->
+                <div class="chat-input-wrapper">
+                    <div class="chat-input-box">
+                        <button class="chat-plus-btn" onclick="triggerImageUpload()" title="上传图片（可多选）">
+                            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                            <span class="home-image-count-badge" id="home-image-count-badge" style="display: none;">0</span>
+                        </button>
+                        <input type="file" id="chat-image-input" accept="image/*" multiple style="display: none;" onchange="handleChatImageUpload(this)">
+                        <textarea class="chat-textarea" id="chat-input" placeholder="输入一句描述让AI帮你设计... (可上传多张图片)" rows="1" oninput="autoResizeTextarea(this)"></textarea>
+                        <button class="chat-send-btn" onclick="sendChatMessage()">发送</button>
+                    </div>
+                    
+                    <!-- 多图片预览容器 -->
+                    <div class="home-images-preview" id="home-images-preview" style="display: none;">
+                        <!-- 图片预览将动态添加 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 功能卡片容器：合并为一个区域 -->
+            <div class="function-sections-row">
+                <div class="function-section dropdown-section merged-section">
+                    <div class="section-header">
+                        <div class="section-indicator"></div>
+                        <h3>功能工具</h3>
+                    </div>
+                    <div class="features-grid-compact merged-grid">
+                        <div class="feature-card" onclick="showPage('batch-background')">
+                            <div class="feature-icon-wrapper">
+                                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            </div>
+                            <h4>批量背景替换</h4>
+                            <p class="feature-badge">最多8张</p>
+                        </div>
+
+                        <div class="feature-card" onclick="showPage('batch-migration')">
+                            <div class="feature-icon-wrapper">
+                                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/></svg>
+                            </div>
+                            <h4>批量产品迁移</h4>
+                            <p class="feature-badge">最多8张</p>
+                        </div>
+
+                        <div class="feature-card" onclick="showPage('text-editor')">
+                            <div class="feature-icon-wrapper">
+                                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                            </div>
+                            <h4>文字编辑</h4>
+                        </div>
+
+                        <div class="feature-card" onclick="window.location.href='logo_editor.html'">
+                            <div class="feature-icon-wrapper">
+                                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M18 13v-2h-2V9h-2v2h-2v2h2v2h2v-2h2zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                            </div>
+                            <h4>Logo编辑</h4>
+                        </div>
+
+                        <div class="feature-card" onclick="window.location.href='size_editor.html'">
+                            <div class="feature-icon-wrapper">
+                                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 17h2v-2H7v2zm0-4h2v-2H7v2zm0-4h2V7H7v2zm4 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V7h-2v2zm4 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V7h-2v2z"/></svg>
+                            </div>
+                            <h4>尺寸编辑</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快捷功能区域：单独放在下方 -->
+            <div class="quick-functions-section">
+                <div class="section-header">
+                    <div class="section-indicator"></div>
+                    <h3>快捷功能</h3>
+                </div>
+                <div class="features-grid-compact quick-functions-grid">
+                    <!-- 10个按钮，2行5列 -->
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="showPage('text')">文字修改</h4>
+                        <div class="feature-card" onclick="showPage('text')">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/文字修改/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="window.location.href='size_editor.html'">尺寸修改</h4>
+                        <div class="feature-card" onclick="window.location.href='size_editor.html'">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/尺寸修改/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="showPage('logo')">Logo添加</h4>
+                        <div class="feature-card" onclick="showPage('logo')">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/Logo添加/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="showPage('extract')">产品抠图</h4>
+                        <div class="feature-card" onclick="showPage('extract')">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/产品抠图/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="showPage('background')">背景替换</h4>
+                        <div class="feature-card" onclick="showPage('background')">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/背景替换/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="showPage('upscale')">高清放大</h4>
+                        <div class="feature-card" onclick="showPage('upscale')">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/高清放大/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="showPage('expand')">一键扩图</h4>
+                        <div class="feature-card" onclick="showPage('expand')">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/一键扩图/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="showPage('migration')">产品迁移</h4>
+                        <div class="feature-card" onclick="showPage('migration')">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/产品迁移/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="showPage('watermark')">水印去除</h4>
+                        <div class="feature-card" onclick="showPage('watermark')">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/水印去除/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-card-wrapper">
+                        <h4 class="feature-title" onclick="showPage('defects')">去瑕疵</h4>
+                        <div class="feature-card" onclick="showPage('defects')">
+                            <div class="feature-video-wrapper">
+                                <video class="feature-video" autoplay loop muted playsinline>
+                                    <source src="videos/demos/去瑕疵/01.mp4" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Pages (Hidden by default) ================= -->
+
+        
+        <!-- 1. 文字修改页面 -->
+        <div id="text-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>文字修改</h2>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="upload-box" id="text-upload">
+                        <input type="file" id="text-file" accept="image/*" onchange="handleFileSelect('text', this)">
+                        <div class="upload-placeholder">
+                            <svg class="icon-svg" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:10px;"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            <p>上传图片</p>
+                        </div>
+                        <img class="preview-image" id="text-preview" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('text', null, event)">×</button>
+                    </div>
+                    <div class="input-group">
+                        <label>修改指令</label>
+                        <input type="text" id="text-instruction" class="text-input" placeholder="例如：把文字A改成文字B">
+                    </div>
+                    <button class="process-btn" id="text-btn" onclick="processImage('text')" disabled>开始修改</button>
+                </div>
+                <div class="result-section" id="text-result">
+                    <h3>处理结果</h3>
+                    <div class="result-box empty" id="text-result-box">
+                        <p>AI 处理后的结果将显示在这里</p>
+                        <img id="text-result-img" class="result-image" style="display: none;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('text')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="text-loading" style="display: none;"><div class="spinner"></div><p>AI 正在修改文字...</p></div>
+        </div>
+
+        <!-- 文字编辑页面 (新功能) -->
+        <div id="text-editor-page" class="page">
+            <!-- 顶部工具栏 -->
+            <div class="text-editor-toolbar">
+                <button class="toolbar-btn" onclick="showPage('home')" title="返回首页">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/></svg>
+                    返回
+                </button>
+                <h2 class="toolbar-title">文字编辑</h2>
+                <div class="toolbar-actions">
+                    <button class="toolbar-btn" onclick="textEditorUndo()" id="te-undo-btn" disabled title="撤销">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+                    </button>
+                    <button class="toolbar-btn" onclick="textEditorRedo()" id="te-redo-btn" disabled title="重做">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
+                    </button>
+                    <div class="toolbar-divider"></div>
+                    <button class="toolbar-btn" id="te-extract-text-btn" onclick="startTextExtraction()" title="选择区域提取文字">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                        文字提取
+                    </button>
+                    <button class="toolbar-btn" id="te-remove-text-btn" onclick="startTextRemoval()" title="选择区域去除文字">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M14.59 8L12 10.59 9.41 8 8 9.41 10.59 12 8 14.59 9.41 16 12 13.41 14.59 16 16 14.59 13.41 12 16 9.41 14.59 8zM12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                        文字去除
+                    </button>
+                    <button class="toolbar-btn" onclick="insertTextBox()" title="插入文本">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M5 4v3h5.5v12h3V7H19V4z"/></svg>
+                        插入文本
+                    </button>
+                    <button class="toolbar-btn" onclick="insertImage()" title="插入图片">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                        插入图片
+                    </button>
+                    <div class="toolbar-divider"></div>
+                    <!-- 文字样式控件（选中文字时显示） -->
+                    <div class="toolbar-style-controls" id="te-toolbar-style-controls" style="display: none;">
+                        <!-- 字体 -->
+                        <select id="te-font-family" class="toolbar-select" onchange="updateTextStyle('fontFamily', this.value)" title="字体">
+                            <option value="MiSans" selected>MiSans</option>
+                            <option value="喜鹊招牌体">喜鹊招牌体</option>
+                            <option value="喜鹊聚珍体">喜鹊聚珍体</option>
+                            <option value="NotoSansCJK">NotoSansCJK</option>
+                        </select>
+                        <!-- 字号 -->
+                        <div class="toolbar-input-group">
+                            <input type="number" id="te-font-size-input" class="toolbar-input-number" min="8" max="200" value="16" onchange="updateTextStyle('fontSize', this.value)" title="字号">
+                            <span class="toolbar-unit">px</span>
+                        </div>
+                        <!-- 颜色 -->
+                        <button class="toolbar-btn text-color-btn" id="te-text-color-btn" onclick="showColorPicker('text')" title="文字颜色">
+                            <svg viewBox="0 0 24 24" width="18" height="18">
+                                <path fill="currentColor" d="M9.62 12L12 5.67 14.38 12M11 3L5.5 17h2.25l1.12-3h6.25l1.12 3h2.25L13 3h-2z"/>
+                                <rect x="4" y="20" width="16" height="3" class="color-preview" fill="#000000"/>
+                            </svg>
+                        </button>
+                        <!-- 对齐 -->
+                        <div class="toolbar-align-group">
+                            <button class="toolbar-btn icon-only align-btn active" data-align="left" onclick="updateTextStyle('textAlign', 'left')" title="左对齐">
+                                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M15 15H3v2h12v-2zm0-8H3v2h12V7zM3 13h18v-2H3v2zm0 8h18v-2H3v2zM3 3v2h18V3H3z"/></svg>
+                            </button>
+                            <button class="toolbar-btn icon-only align-btn" data-align="center" onclick="updateTextStyle('textAlign', 'center')" title="居中">
+                                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z"/></svg>
+                            </button>
+                            <button class="toolbar-btn icon-only align-btn" data-align="right" onclick="updateTextStyle('textAlign', 'right')" title="右对齐">
+                                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"/></svg>
+                            </button>
+                        </div>
+                        <!-- 字间距 -->
+                        <div class="toolbar-spacing-group">
+                            <label class="toolbar-label">字距</label>
+                            <input type="range" id="te-char-spacing" class="toolbar-range" min="-50" max="500" value="0" oninput="updateTextStyle('charSpacing', this.value)">
+                            <span class="toolbar-value" id="te-char-spacing-val">0</span>
+                        </div>
+                        <!-- 行间距 -->
+                        <div class="toolbar-spacing-group">
+                            <label class="toolbar-label">行距</label>
+                            <input type="range" id="te-line-height" class="toolbar-range" min="0.5" max="3" step="0.1" value="1.2" oninput="updateTextStyle('lineHeight', this.value)">
+                            <span class="toolbar-value" id="te-line-height-val">1.2</span>
+                        </div>
+                    </div>
+                    <div class="toolbar-divider" id="te-style-divider" style="display: none;"></div>
+                    <!-- 缩放控制 -->
+                    <button class="toolbar-btn icon-only" onclick="zoomOut()" title="缩小 (Ctrl+-)">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19 13H5v-2h14v2z"/></svg>
+                    </button>
+                    <div class="zoom-display" id="te-zoom-display" title="当前缩放比例">100%</div>
+                    <button class="toolbar-btn icon-only" onclick="zoomIn()" title="放大 (Ctrl++)">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    </button>
+                    <button class="toolbar-btn icon-only" onclick="resetZoom()" title="重置缩放 (Ctrl+0)">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z"/></svg>
+                    </button>
+                    <button class="toolbar-btn icon-only" onclick="fitToScreen()" title="适应屏幕 (Ctrl+F)">
+                        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 主编辑区域：三栏布局 -->
+            <div class="text-editor-container">
+                <!-- 左侧：文本列表 -->
+                <div class="text-editor-sidebar left">
+                    <div class="sidebar-header">
+                        <h3>识别文字区域</h3>
+                        <span class="text-count" id="te-text-count">0个</span>
+                    </div>
+                    
+                    <!-- 图片控制区域 -->
+                    <div class="image-control-area" id="te-image-control" style="display: none;">
+                        <div class="image-control-header">
+                            <span class="image-control-title">当前图片</span>
+                            <button class="image-control-remove" onclick="removeTextEditorImage()" title="删除图片">
+                                <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                            </button>
+                        </div>
+                        <div class="image-control-preview" id="te-image-preview">
+                            <!-- 图片预览将动态添加 -->
+                        </div>
+                        <div class="image-control-actions">
+                            <button class="image-control-btn" onclick="document.getElementById('te-image-input').click()">
+                                <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                                替换图片
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-list" id="te-text-list">
+                        <!-- 上传提示 -->
+                        <div class="empty-state" id="te-empty-state">
+                            <svg viewBox="0 0 24 24" width="48" height="48" style="opacity: 0.3;"><path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            <p>上传图片开始编辑</p>
+                            <button class="upload-trigger-btn" onclick="document.getElementById('te-image-input').click()">选择图片</button>
+                            <p style="font-size: 12px; color: #999; margin-top: 8px;">上传后，使用"文字提取"工具选择区域识别文字</p>
+                        </div>
+                        <!-- 文本项将动态添加 -->
+                    </div>
+                    <div class="sidebar-footer">
+                        <button class="apply-btn" onclick="applyTextEdits()" id="te-apply-btn" disabled>
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+                            应用修改
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 中间：Canvas编辑区 -->
+                <div class="text-editor-canvas-area">
+                    <input type="file" id="te-image-input" accept="image/*" style="display: none;" onchange="handleTextEditorImageUpload(this)">
+                    <div class="canvas-wrapper" id="te-canvas-wrapper">
+                        <canvas id="te-canvas"></canvas>
+                    </div>
+                    <div class="canvas-loading" id="te-canvas-loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>正在识别文字...</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 加载提示 -->
+            <div class="loading" id="te-loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>AI 正在融合修改...</p>
+            </div>
+        </div>
+
+        <!-- 2. 尺寸修改页面 -->
+        <div id="resize-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>尺寸修改</h2>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="editor-stage" id="resize-stage">
+                        <div class="upload-box large" id="resize-upload-area">
+                            <input type="file" id="resize-file" accept="image/*" onchange="handleFileSelect('resize', this)">
+                            <div class="upload-placeholder">
+                                <svg class="icon-svg" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:10px;"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                                <p>点击上传图片</p>
+                            </div>
+                            <img class="preview-image" id="resize-preview" style="display: none;">
+                            <button class="preview-remove-btn" onclick="removeImage('resize', null, event)">×</button>
+                        </div>
+                        <div class="canvas-container" id="resize-editor" style="display: none; position: relative; width: 100%; height: 100%;">
+                            <img id="resize-image-source" style="max-width: 100%;">
+                            <button class="preview-remove-btn canvas-mode" onclick="resetResize()" style="display: block; z-index: 100;">×</button>
+                        </div>
+                    </div>
+                    <div class="controls-panel" style="margin-top: 20px;">
+                        <div class="control-group">
+                            <label>裁剪比例</label>
+                            <input type="hidden" id="resize-ratio" value="NaN">
+                            <div class="ratio-buttons">
+                                <button class="ratio-btn active" data-ratio="NaN" onclick="setResizeRatio(NaN)">自由</button>
+                                <button class="ratio-btn" data-ratio="1" onclick="setResizeRatio(1)">1:1</button>
+                                <button class="ratio-btn" data-ratio="1.333333" onclick="setResizeRatio(1.333333)">4:3</button>
+                                <button class="ratio-btn" data-ratio="1.777778" onclick="setResizeRatio(1.777778)">16:9</button>
+                                <button class="ratio-btn" data-ratio="custom" onclick="setResizeRatio('custom')">自定义</button>
+                            </div>
+                        </div>
+                        <div class="control-group" id="custom-resize-inputs" style="display: none;">
+                            <label>自定义尺寸 (px)</label>
+                            <div class="inputs-row">
+                                <input type="number" id="resize-w" placeholder="宽" onchange="updateCropBox">
+                                <span>x</span>
+                                <input type="number" id="resize-h" placeholder="高" onchange="updateCropBox">
+                            </div>
+                        </div>
+                        <div class="action-group">
+                            <button class="process-btn" id="resize-btn" onclick="processImage('resize')" disabled>确认裁剪并修改</button>
+                            <button class="secondary-btn" onclick="resetResize()" style="display: none;" id="resize-reset-btn">重新上传</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="result-section" id="resize-result">
+                    <h3>处理结果</h3>
+                    <div class="result-box empty" id="resize-result-box">
+                        <p>结果将显示在这里</p>
+                        <img id="resize-result-img" class="result-image" style="display: none;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('resize')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="resize-loading" style="display: none;"><div class="spinner"></div><p>正在处理...</p></div>
+        </div>
+
+        <!-- 3. Logo添加页面 -->
+        <div id="logo-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>Logo添加/修改</h2>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="upload-box" id="logo-upload1">
+                        <input type="file" id="logo-file1" accept="image/*" onchange="handleFileSelect('logo', this, 1)">
+                        <div class="upload-placeholder">
+                            <svg class="icon-svg" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:10px;"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            <p>上传底图</p>
+                        </div>
+                        <img class="preview-image" id="logo-preview1" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('logo', 1, event)">×</button>
+                    </div>
+                    
+                    <div class="upload-box" id="logo-upload2">
+                        <input type="file" id="logo-file2" accept="image/*" onchange="handleFileSelect('logo', this, 2)">
+                        <div class="upload-placeholder">
+                            <svg class="icon-svg" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:10px;"><path d="M18 13v-2h-2V9h-2v2h-2v2h2v2h2v-2h2zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                            <p>上传Logo</p>
+                        </div>
+                        <img class="preview-image" id="logo-preview2" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('logo', 2, event)">×</button>
+                    </div>
+                    
+                    <div class="logo-controls">
+                        <div class="mode-switch">
+                            <label class="switch-label">
+                                <input type="checkbox" id="logo-manual-mode" onchange="toggleLogoMode(this.checked)">
+                                <span class="switch-slider"></span>
+                                <span class="switch-text">开启手动调整 (位置/大小)</span>
+                            </label>
+                        </div>
+                        
+                        <div class="logo-params-control" id="logo-params" style="display: none;">
+                            <div class="position-control">
+                                <label>Logo 位置</label>
+                                <div class="position-grid">
+                                    <div class="grid-cell" onclick="setLogoPosition('tl')" data-pos="tl"></div>
+                                    <div class="grid-cell" onclick="setLogoPosition('tc')" data-pos="tc"></div>
+                                    <div class="grid-cell" onclick="setLogoPosition('tr')" data-pos="tr"></div>
+                                    <div class="grid-cell" onclick="setLogoPosition('ml')" data-pos="ml"></div>
+                                    <div class="grid-cell active" onclick="setLogoPosition('mc')" data-pos="mc"></div>
+                                    <div class="grid-cell" onclick="setLogoPosition('mr')" data-pos="mr"></div>
+                                    <div class="grid-cell" onclick="setLogoPosition('bl')" data-pos="bl"></div>
+                                    <div class="grid-cell" onclick="setLogoPosition('bc')" data-pos="bc"></div>
+                                    <div class="grid-cell" onclick="setLogoPosition('br')" data-pos="br"></div>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label"><span>Logo 大小</span><span id="val-size">30%</span></div>
+                                <input type="range" id="logo-size" min="5" max="80" value="30" oninput="updateLogoParam('size', this.value)">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label"><span>水平边距</span><span id="val-x">5%</span></div>
+                                <input type="range" id="logo-margin-x" min="0" max="40" value="5" oninput="updateLogoParam('x', this.value)">
+                            </div>
+                            <div class="slider-group">
+                                <div class="slider-label"><span>垂直边距</span><span id="val-y">5%</span></div>
+                                <input type="range" id="logo-margin-y" min="0" max="40" value="5" oninput="updateLogoParam('y', this.value)">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="process-btn" id="logo-btn" onclick="processImage('logo')" disabled>开始融合</button>
+                </div>
+                
+                <div class="result-section" id="logo-result">
+                    <h3>处理结果</h3>
+                    <!-- Canvas for Preview (Manual Mode) -->
+                    <div class="canvas-wrapper" id="logo-canvas-wrapper" style="display: none;">
+                         <canvas id="logo-canvas"></canvas>
+                    </div>
+                    <!-- Static Result (Auto Mode / Final Result) -->
+                    <div class="result-box empty" id="logo-result-box">
+                        <p>结果将显示在这里</p>
+                        <img id="logo-result-img" class="result-image" style="display: none;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('logo')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="logo-loading" style="display: none;"><div class="spinner"></div><p>AI 正在融合...</p></div>
+        </div>
+
+        <!-- 4. 产品抠图页面 -->
+        <div id="extract-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>产品抠图</h2>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="upload-box" id="extract-upload">
+                        <input type="file" id="extract-file" accept="image/*" onchange="handleFileSelect('extract', this)">
+                        <div class="upload-placeholder">
+                             <svg class="icon-svg" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:10px;"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            <p>上传产品图</p>
+                        </div>
+                        <img class="preview-image" id="extract-preview" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('extract', null, event)">×</button>
+                    </div>
+                    <button class="process-btn" id="extract-btn" onclick="processImage('extract')" disabled>开始抠图</button>
+                </div>
+                <div class="result-section" id="extract-result">
+                    <h3>处理结果</h3>
+                    <div class="result-box empty" id="extract-result-box">
+                        <p>结果将显示在这里</p>
+                        <img id="extract-result-img" class="result-image" style="display: none; background: #eee;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('extract')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="extract-loading" style="display: none;"><div class="spinner"></div><p>AI 正在抠图...</p></div>
+        </div>
+
+        <!-- 5. 背景替换页面 -->
+        <div id="background-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>背景替换</h2>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="upload-box" id="background-upload1">
+                        <input type="file" id="background-file1" accept="image/*" onchange="handleFileSelect('background', this, 1)">
+                        <div class="upload-placeholder"><p>上传产品图（上）</p></div>
+                        <img class="preview-image" id="background-preview1" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('background', 1, event)">×</button>
+                    </div>
+                    <div class="upload-box small" id="background-upload2" style="margin-top: 20px;">
+                        <input type="file" id="background-file2" accept="image/*" onchange="handleFileSelect('background', this, 2)">
+                        <div class="upload-placeholder"><p>上传背景图（下）</p></div>
+                        <img class="preview-image" id="background-preview2" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('background', 2, event)">×</button>
+                    </div>
+                    
+                    <!-- 快捷选项 -->
+                    <div class="input-group" style="margin-top: 15px;">
+                        <label style="display: block; margin-bottom: 8px; color: #666; font-size: 14px; font-weight: 500;">
+                            快捷选项
+                        </label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; color: #666; font-size: 13px;">是否保留Logo</label>
+                                <select id="background-keep-logo" class="text-input" style="width: 100%; padding: 8px 12px;">
+                                    <option value="yes">是</option>
+                                    <option value="no">否</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; color: #666; font-size: 13px;">是否保留文案</label>
+                                <select id="background-keep-text" class="text-input" style="width: 100%; padding: 8px 12px;">
+                                    <option value="yes">是</option>
+                                    <option value="no">否</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group" style="margin-top: 15px;">
+                        <label style="display: block; margin-bottom: 8px; color: #666; font-size: 14px;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"><path fill="currentColor" d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                            细致要求（可选）
+                        </label>
+                        <textarea id="background-prompt" class="text-input" style="height: 100px;" placeholder="例如：保留logo和文案、只保留logo、保留所有文字等...&#10;如果不填写，将直接进行背景替换"></textarea>
+                        <p class="input-tip" style="margin-top: 8px; font-size: 12px; color: #999;">
+                            💡 提示：您可以通过上方快捷选项快速选择，也可以在此详细描述其他要求
+                        </p>
+                    </div>
+                    <button class="process-btn" id="background-btn" onclick="processImage('background')" disabled>开始替换</button>
+                </div>
+                <div class="result-section" id="background-result">
+                    <h3>处理结果</h3>
+                    <div class="result-box empty" id="background-result-box">
+                        <p>结果将显示在这里</p>
+                        <img id="background-result-img" class="result-image" style="display: none;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('background')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="background-loading" style="display: none;"><div class="spinner"></div><p>AI 正在生成...</p></div>
+        </div>
+
+        <!-- 6. 高清放大页面 -->
+        <div id="upscale-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>高清放大</h2>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="upload-box" id="upscale-upload">
+                        <input type="file" id="upscale-file" accept="image/*" onchange="handleFileSelect('upscale', this)">
+                        <div class="upload-placeholder"><p>上传图片</p></div>
+                        <img class="preview-image" id="upscale-preview" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('upscale', null, event)">×</button>
+                    </div>
+                    <div class="input-group">
+                        <label>放大倍数</label>
+                        <select id="upscale-scale" class="text-input">
+                            <option value="1.5">1.5x (清晰度增强)</option>
+                            <option value="2.0" selected>2.0x (推荐)</option>
+                            <option value="3.0">3.0x (最大)</option>
+                        </select>
+                    </div>
+                    <button class="process-btn" id="upscale-btn" onclick="processImage('upscale')" disabled>开始放大</button>
+                </div>
+                <div class="result-section" id="upscale-result">
+                    <h3>处理结果</h3>
+                    <div class="result-box empty" id="upscale-result-box">
+                        <p>结果将显示在这里</p>
+                        <img id="upscale-result-img" class="result-image" style="display: none;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('upscale')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="upscale-loading" style="display: none;"><div class="spinner"></div><p>AI 正在放大...</p></div>
+        </div>
+
+        <!-- 7. 一键扩图页面 -->
+        <div id="expand-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>一键扩图</h2>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="upload-box" id="expand-upload">
+                        <input type="file" id="expand-file" accept="image/*" onchange="handleFileSelect('expand', this)">
+                        <div class="upload-placeholder">
+                            <svg class="icon-svg" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:10px;"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            <p>上传不完整的图片</p>
+                            <p style="font-size: 12px; color: #999; margin-top: 5px;">AI将自动补全被裁剪的内容</p>
+                        </div>
+                        <img class="preview-image" id="expand-preview" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('expand', null, event)">×</button>
+                    </div>
+                    <button class="process-btn" id="expand-btn" onclick="processImage('expand')" disabled>智能补全图片</button>
+                </div>
+                <div class="result-section" id="expand-result">
+                    <h3>处理结果</h3>
+                    <div class="result-box empty" id="expand-result-box">
+                        <p>AI补全后的完整图片将显示在这里</p>
+                        <img id="expand-result-img" class="result-image" style="display: none;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('expand')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="expand-loading" style="display: none;"><div class="spinner"></div><p>AI 正在智能补全图片...</p></div>
+        </div>
+
+        <!-- 8. 产品迁移页面 -->
+        <div id="migration-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>产品迁移</h2>
+                <p style="font-size: 13px; color: #718096; margin-top: 8px; line-height: 1.5;">
+                    将产品图中的物品智能提取并自然融合到场景图中，实现完美的产品展示效果
+                </p>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="upload-row">
+                        <div class="upload-box small" id="migration-upload1">
+                            <input type="file" id="migration-file1" accept="image/*" onchange="handleFileSelect('migration', this, 1)">
+                            <div class="upload-placeholder">
+                                <p style="font-weight: 600; color: #4a5568;">📦 产品图</p>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">上传要提取的产品</p>
+                            </div>
+                            <img class="preview-image" id="migration-preview1" style="display: none;">
+                            <button class="preview-remove-btn" onclick="removeImage('migration', 1, event)">×</button>
+                        </div>
+                        <div class="upload-box small" id="migration-upload2">
+                            <input type="file" id="migration-file2" accept="image/*" onchange="handleFileSelect('migration', this, 2)">
+                            <div class="upload-placeholder">
+                                <p style="font-weight: 600; color: #4a5568;">🏞️ 场景图</p>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">产品将放入此场景</p>
+                            </div>
+                            <img class="preview-image" id="migration-preview2" style="display: none;">
+                            <button class="preview-remove-btn" onclick="removeImage('migration', 2, event)">×</button>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>操作说明 <span style="color: #999; font-size: 12px;">(选填)</span></label>
+                        <textarea id="migration-instruction" class="text-input" style="height: 90px; resize: vertical;" placeholder="请描述具体操作，例如：&#10;• 把左边的红色杯子放到桌子上&#10;• 用这个手表替换场景中的手表&#10;• 将中间的茶壶迁移到场景中&#10;• 把这个产品添加到桌面上&#10;&#10;如果产品图只有一个主要产品，可以不填写，AI会自动识别" oninput="updateProcessButton('migration')"></textarea>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px; line-height: 1.5;">
+                            💡 <strong>工作原理：</strong>AI会从产品图中提取指定的产品，然后将其自然地放置并融合到场景图中<br>
+                            💡 <strong>使用场景：</strong>将产品放入新场景、替换场景中的产品、商品展示等
+                        </p>
+                    </div>
+                    <button class="process-btn" id="migration-btn" onclick="processImage('migration')" disabled>开始迁移</button>
+                </div>
+                <div class="result-section" id="migration-result">
+                    <h3>处理结果</h3>
+                    <div class="result-box empty" id="migration-result-box">
+                        <p>结果将显示在这里</p>
+                        <img id="migration-result-img" class="result-image" style="display: none;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('migration')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="migration-loading" style="display: none;"><div class="spinner"></div><p>AI 正在自然融合产品...</p></div>
+        </div>
+
+        <!-- 9. 水印去除页面 -->
+        <div id="watermark-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>水印去除</h2>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="upload-box" id="watermark-upload">
+                        <input type="file" id="watermark-file" accept="image/*" onchange="handleFileSelect('watermark', this)">
+                        <div class="upload-placeholder"><p>上传图片</p></div>
+                        <img class="preview-image" id="watermark-preview" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('watermark', null, event)">×</button>
+                    </div>
+                    <button class="process-btn" id="watermark-btn" onclick="processImage('watermark')" disabled>开始去除</button>
+                </div>
+                <div class="result-section" id="watermark-result">
+                    <h3>处理结果</h3>
+                    <div class="result-box empty" id="watermark-result-box">
+                        <p>结果将显示在这里</p>
+                        <img id="watermark-result-img" class="result-image" style="display: none;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('watermark')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="watermark-loading" style="display: none;"><div class="spinner"></div><p>AI 正在去水印...</p></div>
+        </div>
+
+        <!-- 10. 去瑕疵页面 -->
+        <div id="defects-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>去瑕疵</h2>
+            </div>
+            <div class="process-container">
+                <div class="upload-section">
+                    <div class="upload-box" id="defects-upload">
+                        <input type="file" id="defects-file" accept="image/*" onchange="handleFileSelect('defects', this)">
+                        <div class="upload-placeholder"><p>上传图片</p></div>
+                        <img class="preview-image" id="defects-preview" style="display: none;">
+                        <button class="preview-remove-btn" onclick="removeImage('defects', null, event)">×</button>
+                    </div>
+                    <button class="process-btn" id="defects-btn" onclick="processImage('defects')" disabled>开始去瑕疵</button>
+                </div>
+                <div class="result-section" id="defects-result">
+                    <h3>处理结果</h3>
+                    <div class="result-box empty" id="defects-result-box">
+                        <p>结果将显示在这里</p>
+                        <img id="defects-result-img" class="result-image" style="display: none;">
+                    </div>
+                    <div class="result-actions" style="display: none; text-align: center; margin-top: 10px;">
+                        <button class="download-btn" onclick="downloadImage('defects')">下载图片</button>
+                    </div>
+                </div>
+            </div>
+            <div class="loading" id="defects-loading" style="display: none;"><div class="spinner"></div><p>AI 正在去瑕疵...</p></div>
+        </div>
+
+        <!-- 11. AI 对话页面 -->
+        <div id="chat-page" class="page">
+            <div class="chat-layout">
+                <!-- 左侧对话历史 -->
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <button class="chat-back-btn" onclick="showPage('home')">
+                            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                            返回首页
+                        </button>
+                        <button class="chat-new-btn" onclick="startNewChat()">
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                            新对话
+                        </button>
+                    </div>
+                    <div class="chat-history-list" id="chat-history-list">
+                        <!-- Chat history items will be populated here -->
+                    </div>
+                </div>
+
+                <!-- 右侧对话区域 -->
+                <div class="chat-main">
+                    <div class="chat-messages" id="chat-messages">
+                        <!-- Chat messages will be populated here -->
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <!-- 当前工作图片提示 -->
+                        <div class="working-image-hint" id="working-image-hint" style="display: none;">
+                            <div class="working-image-content">
+                                <img id="working-image-preview" alt="工作图片">
+                                <div class="working-image-info">
+                                    <span class="working-image-icon">🖼️</span>
+                                    <span class="working-image-text">将编辑此图片</span>
+                                </div>
+                                <button class="working-image-remove" onclick="clearWorkingImage()" title="取消引用">×</button>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-input-wrapper-page">
+                            <button class="chat-attach-btn" onclick="triggerChatPageImageUpload()" title="上传图片（可多选）">
+                                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                                <span class="image-count-badge" id="image-count-badge" style="display: none;">0</span>
+                            </button>
+                            <input type="file" id="chat-page-image-input" accept="image/*" multiple style="display: none;" onchange="handleChatPageImageUpload(this)">
+                            
+                            <!-- 多图片预览容器 -->
+                            <div class="chat-page-images-preview" id="chat-page-images-preview" style="display: none;">
+                                <!-- 图片预览将动态添加 -->
+                            </div>
+                            
+                            <textarea class="chat-page-textarea" id="chat-page-input" placeholder="输入消息... (可上传多张图片)" rows="1" oninput="autoResizeTextarea(this)"></textarea>
+                            <button class="chat-page-send-btn" onclick="sendChatPageMessage()">
+                                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 批量背景替换页面 -->
+        <div id="batch-background-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>批量背景替换</h2>
+                <p style="font-size: 13px; color: #718096; margin-top: 8px;">支持多产品单背景 / 单产品多背景两种模式</p>
+            </div>
+            
+            <!-- 模式切换按钮 -->
+            <div style="max-width: 1400px; margin: 0 auto 20px; padding: 0 20px;">
+                <div style="display: flex; gap: 12px; background: #f8f9fa; padding: 8px; border-radius: 12px; width: fit-content; margin: 0 auto;">
+                    <button class="mode-switch-btn active" id="multi-product-mode-btn" onclick="switchBgMode('multi')" style="padding: 10px 24px; border: none; background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        多产品背景替换
+                    </button>
+                    <button class="mode-switch-btn" id="single-product-mode-btn" onclick="switchBgMode('single')" style="padding: 10px 24px; border: none; background: transparent; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s;">
+                        单产品背景替换
+                    </button>
+                </div>
+            </div>
+            
+            <div class="batch-container">
+                <!-- 左侧：上传区域 -->
+                <div class="batch-left">
+                    <div class="batch-section">
+                        <h3 class="batch-section-title">上传图片</h3>
+                        
+                        <!-- 原图上传 - 新布局：左侧按钮 + 右侧展示 -->
+                        <div class="batch-upload-row">
+                            <div class="upload-btn-wrapper">
+                                <button class="upload-trigger-btn" onclick="document.getElementById('batch-bg-source-file').click()">
+                                    <span id="batch-bg-source-label">原图</span>
+                                </button>
+                                <input type="file" id="batch-bg-source-file" accept="image/*" multiple onchange="handleBatchFolderUpload('background', this)" style="display: none;">
+                                <span class="upload-count" id="batch-bg-count">0/8</span>
+                            </div>
+                            <div class="upload-display-area" id="batch-bg-source-display">
+                                <div class="empty-hint" id="batch-bg-empty-hint">
+                                    <p id="batch-bg-source-hint">点击左侧"原图"按钮上传图片</p>
+                                    <p style="font-size: 12px; color: #999; margin-top: 4px;" id="batch-bg-source-limit">最多8张，可多次添加</p>
+                                </div>
+                                <div id="batch-bg-source-previews" class="batch-previews-grid" style="display: none;">
+                                    <!-- 预览将动态添加 -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 背景图上传 - 新布局：左侧按钮 + 右侧展示 -->
+                        <div class="batch-upload-row">
+                            <div class="upload-btn-wrapper">
+                                <button class="upload-trigger-btn" onclick="document.getElementById('batch-bg-target-file').click()">
+                                    背景图
+                                </button>
+                                <input type="file" id="batch-bg-target-file" accept="image/*" onchange="handleBatchTargetUpload('background', this)" style="display: none;">
+                                <span class="upload-count" id="batch-bg-target-count">1张</span>
+                            </div>
+                            <div class="upload-display-area" id="batch-bg-target-display">
+                                <div class="empty-hint" id="batch-bg-target-empty-hint">
+                                    <p id="batch-bg-target-hint">点击左侧"背景图"按钮上传</p>
+                                    <p style="font-size: 12px; color: #999; margin-top: 4px; display: none;" id="batch-bg-target-limit">最多8张，可多次添加</p>
+                                </div>
+                                <div id="batch-bg-target-preview-container" style="display: none;">
+                                    <div class="preview-single-item" id="batch-bg-single-wrapper">
+                                        <img id="batch-bg-target-preview" alt="背景图">
+                                        <button class="preview-item-remove" onclick="clearBatchTarget('background', event)">×</button>
+                                    </div>
+                                    <div id="batch-bg-target-previews" class="batch-previews-grid" style="display: none;">
+                                        <!-- 多张背景图预览 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 进度条 -->
+                        <div id="batch-bg-progress" class="batch-progress" style="display: none;">
+                            <div class="progress-bar-wrapper">
+                                <div id="batch-bg-progress-bar" class="progress-bar"></div>
+                            </div>
+                            <p id="batch-bg-progress-text" class="progress-text">准备处理...</p>
+                        </div>
+                        
+                        <!-- 开始处理按钮 -->
+                        <button class="process-btn" id="batch-bg-process-btn" onclick="processBatch('background')" disabled>开始批量处理</button>
+                    </div>
+                </div>
+                
+                <!-- 右侧：结果区域 -->
+                <div class="batch-right">
+                    <div class="batch-section batch-result-section">
+                        <h3 class="batch-section-title">处理结果</h3>
+                        <div id="batch-bg-result" class="batch-result-empty">
+                            <svg viewBox="0 0 24 24" width="48" height="48" style="opacity: 0.3; margin-bottom: 10px;"><path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            <p style="color: #999;">处理结果将显示在这里</p>
+                        </div>
+                        <div id="batch-bg-results-grid" class="batch-results-grid" style="display: none;">
+                            <!-- 结果将动态添加，带序号 -->
+                        </div>
+                        <div class="result-actions" style="display: none;" id="batch-bg-download-section">
+                            <button class="download-btn" onclick="downloadBatchZip('background')">📦 打包下载全部</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 批量产品迁移页面 -->
+        <div id="batch-migration-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>批量产品迁移</h2>
+                <p style="font-size: 13px; color: #718096; margin-top: 8px;">最多可处理 8 张图片，按顺序逐张处理</p>
+            </div>
+            
+            <div class="batch-container">
+                <!-- 左侧：上传区域 -->
+                <div class="batch-left">
+                    <div class="batch-section">
+                        <h3 class="batch-section-title">上传图片</h3>
+                        
+                        <!-- 产品图上传 - 新布局：左侧按钮 + 右侧展示 -->
+                        <div class="batch-upload-row">
+                            <div class="upload-btn-wrapper">
+                                <button class="upload-trigger-btn" onclick="document.getElementById('batch-mg-source-file').click()">
+                                    产品图
+                                </button>
+                                <input type="file" id="batch-mg-source-file" accept="image/*" multiple onchange="handleBatchFolderUpload('migration', this)" style="display: none;">
+                                <span class="upload-count" id="batch-mg-count">0/8</span>
+                            </div>
+                            <div class="upload-display-area" id="batch-mg-source-display">
+                                <div class="empty-hint" id="batch-mg-empty-hint">
+                                    <p>点击左侧"产品图"按钮上传图片</p>
+                                    <p style="font-size: 12px; color: #999; margin-top: 4px;">最多8张，可多次添加</p>
+                                </div>
+                                <div id="batch-mg-source-previews" class="batch-previews-grid" style="display: none;">
+                                    <!-- 预览将动态添加 -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 目标场景图上传 - 新布局：左侧按钮 + 右侧展示 -->
+                        <div class="batch-upload-row">
+                            <div class="upload-btn-wrapper">
+                                <button class="upload-trigger-btn" onclick="document.getElementById('batch-mg-target-file').click()">
+                                    场景图
+                                </button>
+                                <input type="file" id="batch-mg-target-file" accept="image/*" onchange="handleBatchTargetUpload('migration', this)" style="display: none;">
+                                <span class="upload-count">1张</span>
+                            </div>
+                            <div class="upload-display-area" id="batch-mg-target-display">
+                                <div class="empty-hint" id="batch-mg-target-empty-hint">
+                                    <p>点击左侧"场景图"按钮上传</p>
+                                </div>
+                                <div id="batch-mg-target-preview-container" style="display: none;">
+                                    <div class="preview-single-item">
+                                        <img id="batch-mg-target-preview" alt="场景图">
+                                        <button class="preview-item-remove" onclick="clearBatchTarget('migration', event)">×</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 进度条 -->
+                        <div id="batch-mg-progress" class="batch-progress" style="display: none;">
+                            <div class="progress-bar-wrapper">
+                                <div id="batch-mg-progress-bar" class="progress-bar"></div>
+                            </div>
+                            <p id="batch-mg-progress-text" class="progress-text">准备处理...</p>
+                        </div>
+                        
+                        <!-- 开始处理按钮 -->
+                        <button class="process-btn" id="batch-mg-process-btn" onclick="processBatch('migration')" disabled>开始批量迁移</button>
+                    </div>
+                </div>
+                
+                <!-- 右侧：结果区域 -->
+                <div class="batch-right">
+                    <div class="batch-section batch-result-section">
+                        <h3 class="batch-section-title">处理结果</h3>
+                        <div id="batch-mg-result" class="batch-result-empty">
+                            <svg viewBox="0 0 24 24" width="48" height="48" style="opacity: 0.3; margin-bottom: 10px;"><path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            <p style="color: #999;">处理结果将显示在这里</p>
+                        </div>
+                        <div id="batch-mg-results-grid" class="batch-results-grid" style="display: none;">
+                            <!-- 结果将动态添加，带序号 -->
+                        </div>
+                        <div class="result-actions" style="display: none;" id="batch-mg-download-section">
+                            <button class="download-btn" onclick="downloadBatchZip('migration')">📦 打包下载全部</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="history-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>历史记录</h2>
+                <button class="clear-history-btn" onclick="clearHistory()">清空记录</button>
+            </div>
+            <div class="history-container">
+                <div class="history-grid" id="history-grid">
+                    <!-- History items will be populated here -->
+                </div>
+                <div class="empty-history" id="empty-history" style="display: none;">
+                    <p>暂无历史记录</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

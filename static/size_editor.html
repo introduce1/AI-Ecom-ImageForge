@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>尺寸编辑器 - 专业图片裁剪工具</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/size_editor_styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+</head>
+<body>
+    <div class="size-editor-container">
+        <!-- 顶部工具栏 -->
+        <div class="size-editor-header">
+            <button class="back-btn" onclick="window.location.href='index.html'">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                </svg>
+                返回首页
+            </button>
+            <h1 class="editor-title">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 17h2v-2H7v2zm0-4h2v-2H7v2zm0-4h2V7H7v2zm4 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V7h-2v2zm4 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V7h-2v2z"/>
+                </svg>
+                尺寸编辑器
+            </h1>
+            <div class="header-actions">
+                <button class="btn-secondary" onclick="resetEditor()" title="重置">
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path fill="currentColor" d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                    </svg>
+                    重置
+                </button>
+                <button class="btn-primary" onclick="applyCrop()" id="apply-btn" disabled>
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                    </svg>
+                    确认裁剪
+                </button>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="size-editor-main">
+            <!-- 左侧：裁剪模式选择 -->
+            <div class="mode-panel">
+                <div class="panel-header">
+                    <h3>裁剪模式</h3>
+                </div>
+
+                <!-- 模式切换按钮 -->
+                <div class="mode-tabs">
+                    <button class="mode-tab active" data-mode="free" onclick="switchMode('free')">
+                        <svg viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="currentColor" d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2zm12 4c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zm-9 8c0-2 4-3.1 6-3.1s6 1.1 6 3.1v1H6v-1z"/>
+                        </svg>
+                        自由裁剪
+                    </button>
+                    <button class="mode-tab" data-mode="custom" onclick="switchMode('custom')">
+                        <svg viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                        </svg>
+                        指定尺寸
+                    </button>
+                    <button class="mode-tab" data-mode="platform" onclick="switchMode('platform')">
+                        <svg viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        平台预设
+                    </button>
+                </div>
+
+                <!-- 自由裁剪模式 -->
+                <div class="mode-content" id="mode-free">
+                    <div class="mode-description">
+                        <p>🎯 拖动裁剪框自由选择裁剪区域</p>
+                        <ul>
+                            <li>拖动四角调整裁剪框大小</li>
+                            <li>拖动裁剪框移动位置</li>
+                            <li>支持任意比例裁剪</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 指定尺寸模式 -->
+                <div class="mode-content" id="mode-custom" style="display: none;">
+                    <div class="mode-description">
+                        <p>📏 输入精确的宽度和高度数值</p>
+                    </div>
+                    <div class="input-group">
+                        <label>宽度 (px)</label>
+                        <input type="number" id="custom-width" placeholder="如：1200" min="50" max="10000" oninput="applyCustomSize()">
+                    </div>
+                    <div class="input-group">
+                        <label>高度 (px)</label>
+                        <input type="number" id="custom-height" placeholder="如：600" min="50" max="10000" oninput="applyCustomSize()">
+                    </div>
+                    <div class="size-hint">
+                        <small>💡 最小尺寸：50×50 px</small>
+                    </div>
+                </div>
+
+                <!-- 平台预设模式 -->
+                <div class="mode-content" id="mode-platform" style="display: none;">
+                    <div class="mode-description">
+                        <p>🏪 选择电商平台和对应的标准尺寸</p>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>选择平台</label>
+                        <select id="platform-select" onchange="onPlatformChange()">
+                            <option value="">请选择平台</option>
+                            <option value="taobao">淘宝/天猫</option>
+                            <option value="jd">京东</option>
+                            <option value="pdd">拼多多</option>
+                            <option value="common">通用比例</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group" id="size-select-group" style="display: none;">
+                        <label>标准尺寸</label>
+                        <select id="size-select" onchange="applyPlatformSize()">
+                            <option value="">请选择尺寸</option>
+                        </select>
+                    </div>
+
+                    <div class="platform-info" id="platform-info" style="display: none;">
+                        <!-- 动态显示平台尺寸信息 -->
+                    </div>
+                </div>
+
+                <!-- 当前裁剪信息 -->
+                <div class="crop-info" id="crop-info" style="display: none;">
+                    <div class="info-header">当前裁剪区域</div>
+                    <div class="info-row">
+                        <span>宽度：</span>
+                        <span id="crop-width">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span>高度：</span>
+                        <span id="crop-height">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span>比例：</span>
+                        <span id="crop-ratio">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中间：预览区域 -->
+            <div class="preview-panel">
+                <div class="panel-header">
+                    <h3>图片预览</h3>
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" onclick="zoomOut()" title="缩小">
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path fill="currentColor" d="M19 13H5v-2h14v2z"/>
+                            </svg>
+                        </button>
+                        <span class="zoom-display" id="zoom-display">100%</span>
+                        <button class="zoom-btn" onclick="zoomIn()" title="放大">
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                        </button>
+                        <button class="zoom-btn" onclick="resetZoom()" title="重置缩放">
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path fill="currentColor" d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 上传区域 -->
+                <div class="upload-area" id="upload-area">
+                    <input type="file" id="image-input" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+                    <svg viewBox="0 0 24 24" width="64" height="64" style="opacity: 0.3;">
+                        <path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                    </svg>
+                    <p>点击上传图片或拖拽图片到此处</p>
+                    <button class="upload-btn" onclick="document.getElementById('image-input').click()">选择图片</button>
+                </div>
+
+                <!-- 裁剪容器 -->
+                <div class="crop-container" id="crop-container" style="display: none;">
+                    <img id="crop-image" alt="待裁剪图片">
+                </div>
+            </div>
+
+            <!-- 右侧：结果预览 -->
+            <div class="result-panel">
+                <div class="panel-header">
+                    <h3>裁剪结果</h3>
+                </div>
+
+                <div class="result-preview" id="result-preview">
+                    <div class="result-empty">
+                        <svg viewBox="0 0 24 24" width="48" height="48" style="opacity: 0.3;">
+                            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                        </svg>
+                        <p>裁剪结果将显示在这里</p>
+                    </div>
+                    <canvas id="result-canvas" style="display: none; max-width: 100%; height: auto;"></canvas>
+                </div>
+
+                <div class="result-info" id="result-info" style="display: none;">
+                    <div class="info-row">
+                        <span>尺寸：</span>
+                        <span id="result-size">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span>文件大小：</span>
+                        <span id="result-filesize">-</span>
+                    </div>
+                </div>
+
+                <div class="result-actions" id="result-actions" style="display: none;">
+                    <button class="btn-download" onclick="downloadResult()">
+                        <svg viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="currentColor" d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/>
+                        </svg>
+                        下载图片
+                    </button>
+                    <button class="btn-secondary" onclick="resetEditor()">重新裁剪</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/size_editor.js"></script>
+</body>
+</html>
+
