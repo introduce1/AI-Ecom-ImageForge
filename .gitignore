@@ -23,6 +23,9 @@ static/temp/
 static/videos/**/*.mp4
 static/videos/**/*.backup
 
+# Logo资源目录（静态资源，通常很大，不应该提交到仓库）
+LOGO/
+
 # 日志文件
 *.log
 
