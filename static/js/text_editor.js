@@ -26,6 +26,8 @@ let teHoveredObject = null;  // 当前悬浮的对象
 // 颜色选择器相关
 let teColorPickerVisible = false;  // 颜色选择器是否显示
 let teCurrentColorTarget = null;  // 当前正在选择颜色的目标（'text' 或 其他）
+let teColorPickerClickHandler = null;  // 颜色选择器外部点击事件处理器
+let teSelectedColor = null;  // 当前在颜色选择器中选中的颜色（未应用）
 
 // 文字提取工具相关
 let teIsSelecting = false;  // 是否正在选择区域
@@ -50,6 +52,9 @@ function initTextEditor() {
     }
     
     console.log('[文字编辑] 初始化...');
+    
+    // 加载字体列表
+    loadFontList();
     
     // 初始化 Fabric.js Canvas
     const canvasEl = document.getElementById('te-canvas');
@@ -112,6 +117,113 @@ function initTextEditor() {
     } catch (error) {
         console.error('[文字编辑] 初始化失败:', error);
         teInitialized = false;
+    }
+}
+
+// ==========================================
+// 加载字体列表
+// ==========================================
+async function loadFontList() {
+    try {
+        const response = await fetch('/api/fonts');
+        const data = await response.json();
+        
+        const fontSelect = document.getElementById('te-font-family');
+        if (!fontSelect) {
+            console.warn('[字体列表] 字体选择器元素未找到');
+            return;
+        }
+        
+        if (data.success && data.fonts && data.fonts.length > 0) {
+            // 清空现有选项
+            fontSelect.innerHTML = '';
+            
+            // 分离字体和样式
+            const baseFonts = [];  // 基础字体
+            const notoStyles = [];  // NotoSansCJK 样式
+            
+            data.fonts.forEach((font) => {
+                if (font.name.startsWith('NotoSansCJK-')) {
+                    notoStyles.push(font);
+                } else {
+                    baseFonts.push(font);
+                }
+            });
+            
+            // 创建"字体"分组
+            if (baseFonts.length > 0) {
+                const fontGroup = document.createElement('optgroup');
+                fontGroup.label = '字体';
+                baseFonts.forEach((font, index) => {
+                    const option = document.createElement('option');
+                    option.value = font.name;
+                    option.textContent = font.displayName || font.name;
+                    if (index === 0 || font.name === 'MiSans') {
+                        option.selected = true;
+                    }
+                    fontGroup.appendChild(option);
+                });
+                fontSelect.appendChild(fontGroup);
+            }
+            
+            // 创建"样式"分组
+            if (notoStyles.length > 0) {
+                const styleGroup = document.createElement('optgroup');
+                styleGroup.label = '样式';
+                notoStyles.forEach((font) => {
+                    const option = document.createElement('option');
+                    option.value = font.name;
+                    // 只显示样式名称，不显示 NotoSansCJK 前缀
+                    const styleName = font.displayName ? font.displayName.replace('NotoSansCJK ', '') : font.name.replace('NotoSansCJK-', '');
+                    option.textContent = styleName;
+                    styleGroup.appendChild(option);
+                });
+                fontSelect.appendChild(styleGroup);
+            }
+            
+            console.log(`[字体列表] ✅ 已加载 ${baseFonts.length} 个字体和 ${notoStyles.length} 个样式`);
+        } else {
+            console.warn('[字体列表] 未获取到字体列表，使用默认字体');
+            // 如果API失败，使用默认字体（使用 optgroup 分组）
+            fontSelect.innerHTML = `
+                <optgroup label="字体">
+                    <option value="MiSans" selected>MiSans</option>
+                    <option value="喜鹊招牌体">喜鹊招牌体</option>
+                    <option value="喜鹊聚珍体">喜鹊聚珍体</option>
+                </optgroup>
+                <optgroup label="样式">
+                    <option value="NotoSansCJK-Regular">Regular</option>
+                    <option value="NotoSansCJK-Bold">Bold</option>
+                    <option value="NotoSansCJK-Light">Light</option>
+                    <option value="NotoSansCJK-Medium">Medium</option>
+                    <option value="NotoSansCJK-Black">Black</option>
+                    <option value="NotoSansCJK-DemiLight">DemiLight</option>
+                    <option value="NotoSansCJK-Thin">Thin</option>
+                </optgroup>
+            `;
+        }
+    } catch (error) {
+        console.error('[字体列表] 加载失败:', error);
+        // 如果加载失败，使用默认字体（使用 optgroup 分组）
+        const fontSelect = document.getElementById('te-font-family');
+        if (fontSelect) {
+            fontSelect.innerHTML = `
+                <optgroup label="字体">
+                    <option value="MiSans" selected>MiSans</option>
+                    <option value="喜鹊招牌体">喜鹊招牌体</option>
+                    <option value="喜鹊聚珍体">喜鹊聚珍体</option>
+                </optgroup>
+                <optgroup label="样式">
+                    <option value="NotoSansCJK-Regular">Regular</option>
+                    <option value="NotoSansCJK-Bold">Bold</option>
+                    <option value="NotoSansCJK-Light">Light</option>
+                    <option value="NotoSansCJK-Medium">Medium</option>
+                    <option value="NotoSansCJK-Black">Black</option>
+                    <option value="NotoSansCJK-DemiLight">DemiLight</option>
+                    <option value="NotoSansCJK-Thin">Thin</option>
+                </optgroup>
+            `;
+        }
     }
 }
 
@@ -381,13 +493,16 @@ function createTextBoxesFromOCR(textRegions) {
         const canvasWidth = region.width * scale;
         const canvasHeight = region.height * scale;
         
+        // 获取当前选中的字体，如果没有则使用默认值
+        const currentFont = document.getElementById('te-font-family')?.value || 'MiSans';
+        
         const textBox = new fabric.Textbox(region.text, {
             left: canvasX,
             top: canvasY,
             width: canvasWidth,
             fontSize: Math.max(12, canvasHeight * 0.6), // 根据Canvas高度估算字号
             fill: '#000000',
-            fontFamily: 'MiSans',
+            fontFamily: currentFont,
             textAlign: 'left',
             editable: true,
             hasControls: true,
@@ -655,13 +770,16 @@ function updateHistoryButtons() {
 function insertTextBox() {
     console.log('[文字编辑] 插入文本框');
     
+    // 获取当前选中的字体，如果没有则使用默认值
+    const currentFont = document.getElementById('te-font-family')?.value || 'MiSans';
+    
     const textBox = new fabric.Textbox('新文本', {
         left: teCanvas.width / 2 - 50,
         top: teCanvas.height / 2 - 20,
         width: 150,
         fontSize: 24,
         fill: '#000000',
-        fontFamily: 'Microsoft YaHei',
+        fontFamily: currentFont,
         textAlign: 'left',
         editable: true,
         hasControls: true,
@@ -1178,6 +1296,21 @@ function showColorPicker(target = 'text') {
     // 显示颜色选择器
     colorPicker.style.display = 'block';
     teColorPickerVisible = true;
+    teSelectedColor = null;  // 重置选中的颜色
+    
+    // 清除之前的高亮状态
+    colorPicker.querySelectorAll('.color-picker-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    
+    // 如果当前有选中的文本框，同步其颜色到自定义颜色输入框
+    if (teSelectedTextBox && teSelectedTextBox.fill) {
+        const customInput = document.getElementById('te-custom-color-input');
+        if (customInput) {
+            customInput.value = teSelectedTextBox.fill;
+            teSelectedColor = teSelectedTextBox.fill;
+        }
+    }
     
     // 定位到颜色按钮附近
     const colorBtn = document.getElementById('te-text-color-btn');
@@ -1195,8 +1328,13 @@ function hideColorPicker() {
     const colorPicker = document.getElementById('te-color-picker');
     if (colorPicker) {
         colorPicker.style.display = 'none';
+        // 清除选中的状态
+        colorPicker.querySelectorAll('.color-picker-item').forEach(item => {
+            item.classList.remove('selected');
+        });
     }
     teColorPickerVisible = false;
+    teSelectedColor = null;  // 清除选中的颜色
     console.log('[颜色选择器] 隐藏颜色选择器');
 }
 
@@ -1230,12 +1368,30 @@ function createColorPicker() {
     colorPicker.innerHTML = html;
     document.body.appendChild(colorPicker);
     
-    // 点击颜色项
+    // 点击颜色项（只选中，不立即应用）
     colorPicker.querySelectorAll('.color-picker-item').forEach(item => {
-        item.addEventListener('click', function() {
+        item.addEventListener('click', function(e) {
+            e.stopPropagation();
             const color = this.getAttribute('data-color');
-            applyColor(color);
-            hideColorPicker();
+            
+            // 清除其他项的高亮
+            colorPicker.querySelectorAll('.color-picker-item').forEach(i => {
+                i.classList.remove('selected');
+            });
+            
+            // 高亮当前选中的项
+            this.classList.add('selected');
+            
+            // 保存选中的颜色（但不立即应用）
+            teSelectedColor = color;
+            
+            // 更新自定义颜色输入框的值（可选）
+            const customInput = document.getElementById('te-custom-color-input');
+            if (customInput) {
+                customInput.value = color;
+            }
+            
+            console.log('[颜色选择器] 选中颜色:', color, '(等待确定)');
         });
     });
     
@@ -1243,28 +1399,76 @@ function createColorPicker() {
     const okBtn = colorPicker.querySelector('#te-color-ok-btn');
     if (okBtn) {
         okBtn.addEventListener('click', function(e) {
+            e.preventDefault();
             e.stopPropagation();
-            applyCustomColor();
+            console.log('[颜色选择器] 确定按钮被点击');
+            
+            // 获取要应用的颜色：优先使用选中的颜色块，否则使用自定义颜色输入框的值
+            let colorToApply = teSelectedColor;
+            
+            if (!colorToApply) {
+                // 如果没有选中颜色块，使用自定义颜色输入框的值
+                const customInput = document.getElementById('te-custom-color-input');
+                if (customInput && customInput.value) {
+                    colorToApply = customInput.value;
+                }
+            }
+            
+            if (colorToApply) {
+                console.log('[颜色选择器] 应用颜色:', colorToApply);
+                applyColor(colorToApply);
+                hideColorPicker();
+            } else {
+                console.warn('[颜色选择器] 没有选中任何颜色');
+                showNotification('请先选择一个颜色', 'warning', 2000);
+            }
         });
     }
     
-    // 自定义颜色输入框变化时实时预览（可选）
+    // 自定义颜色输入框变化时更新选中的颜色
     const customInput = colorPicker.querySelector('#te-custom-color-input');
     if (customInput) {
         customInput.addEventListener('change', function() {
-            // 可以在这里添加实时预览功能
-            console.log('[颜色选择器] 自定义颜色已选择:', this.value);
+            const color = this.value;
+            console.log('[颜色选择器] 自定义颜色已选择:', color);
+            
+            // 清除颜色块的高亮
+            colorPicker.querySelectorAll('.color-picker-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // 更新选中的颜色
+            teSelectedColor = color;
+        });
+        
+        customInput.addEventListener('input', function() {
+            // 实时更新选中的颜色
+            teSelectedColor = this.value;
         });
     }
     
-    // 点击外部关闭
-    document.addEventListener('click', function(e) {
-        if (teColorPickerVisible && 
-            !colorPicker.contains(e.target) && 
-            !e.target.closest('#te-text-color-btn')) {
-            hideColorPicker();
-        }
-    });
+    // 点击外部关闭（使用命名函数，避免重复注册）
+    if (!teColorPickerClickHandler) {
+        teColorPickerClickHandler = function(e) {
+            if (teColorPickerVisible) {
+                const colorPicker = document.getElementById('te-color-picker');
+                if (!colorPicker) {
+                    return;
+                }
+                
+                // 排除颜色选择器内部元素和颜色按钮
+                const isInsidePicker = colorPicker.contains(e.target);
+                const isColorBtn = e.target.closest('#te-text-color-btn');
+                const isOkBtn = e.target.closest('#te-color-ok-btn');
+                
+                if (!isInsidePicker && !isColorBtn && !isOkBtn) {
+                    hideColorPicker();
+                }
+            }
+        };
+        // 使用捕获阶段，确保在其他事件之前处理
+        document.addEventListener('click', teColorPickerClickHandler, true);
+    }
     
     console.log('[颜色选择器] 颜色选择器已创建');
 }
@@ -1333,8 +1537,8 @@ function applyCustomColor() {
     // 应用颜色
     applyColor(color);
     
-    // 隐藏颜色选择器
-    hideColorPicker();
+    // 注意：不在这里调用 hideColorPicker()，因为确定按钮的点击事件已经调用了
+    // 这样可以避免时序问题
 }
 
 function handleCanvasWheel(e) {
@@ -1682,8 +1886,7 @@ async function extractTextFromRegion(left, top, width, height) {
         
         const data = await response.json();
         
-        // 隐藏加载状态
-        document.getElementById('te-canvas-loading').style.display = 'none';
+        // 隐藏加载状态（但先不隐藏，因为接下来可能要进行文字去除）
         
         if (data.success && data.textRegions && data.textRegions.length > 0) {
             console.log(`[文字提取] ✅ 识别到 ${data.textRegions.length} 个文字区域`);
@@ -1709,7 +1912,28 @@ async function extractTextFromRegion(left, top, width, height) {
             
             // 取消选择模式
             cancelTextExtraction();
+            
+            // 【新功能】提取成功后，自动执行文字去除
+            // 注意：不隐藏加载状态，因为接下来要进行文字去除
+            console.log('[文字提取] 自动执行文字去除...');
+            document.querySelector('#te-canvas-loading p').textContent = '正在去除文字...';
+            
+            // 直接调用文字去除函数（跳过确认对话框和加载状态管理）
+            // left, top, width, height 是canvas坐标，removeTextFromRegion会内部转换为原图坐标
+            // skipLoadingState=true 表示这是工作流调用，不需要重复管理加载状态
+            try {
+                await removeTextFromRegion(left, top, width, height, true);
+                // 文字去除成功后，隐藏加载状态
+                document.getElementById('te-canvas-loading').style.display = 'none';
+            } catch (error) {
+                // 如果文字去除失败，隐藏加载状态
+                document.getElementById('te-canvas-loading').style.display = 'none';
+                console.error('[文字提取] 自动文字去除失败:', error);
+                // 不显示错误提示，因为文字提取已经成功，用户可以手动去除文字
+                // 但记录错误以便调试
+            }
         } else {
+            document.getElementById('te-canvas-loading').style.display = 'none';
             showNotification('未识别到文字，请尝试选择其他区域', 'warning', 3000);
             cancelTextExtraction();
         }
@@ -1942,12 +2166,14 @@ function showRemovalConfirmDialog(left, top, width, height) {
     }
 }
 
-async function removeTextFromRegion(left, top, width, height) {
+async function removeTextFromRegion(left, top, width, height, skipLoadingState = false) {
     console.log('[文字去除] 开始去除选中区域的文字...');
     
-    // 显示加载状态
-    document.getElementById('te-canvas-loading').style.display = 'flex';
-    document.querySelector('#te-canvas-loading p').textContent = '正在去除文字...';
+    // 显示加载状态（如果未跳过）
+    if (!skipLoadingState) {
+        document.getElementById('te-canvas-loading').style.display = 'flex';
+        document.querySelector('#te-canvas-loading p').textContent = '正在去除文字...';
+    }
     
     try {
         // 将Canvas坐标转换为原图坐标
@@ -2002,20 +2228,32 @@ async function removeTextFromRegion(left, top, width, height) {
             // 更新原始图片数据和Canvas显示
             await updateCanvasWithNewImage(data.image_url);
             
-            // 取消选择模式
-            cancelTextRemoval();
-            
-            // 提示用户
-            showNotification('文字已成功去除！您现在可以继续编辑或插入新文字。', 'success', 3000);
+            // 取消选择模式（只有在手动触发时才取消）
+            if (!skipLoadingState) {
+                cancelTextRemoval();
+                // 提示用户
+                showNotification('文字已成功去除！您现在可以继续编辑或插入新文字。', 'success', 3000);
+            } else {
+                // 工作流调用时，只显示简短提示
+                showNotification('文字已成功去除', 'success', 2000);
+            }
         } else {
-            showNotification('文字去除失败: ' + (data.error || '未知错误'), 'error', 3000);
-            cancelTextRemoval();
+            if (!skipLoadingState) {
+                showNotification('文字去除失败: ' + (data.error || '未知错误'), 'error', 3000);
+                cancelTextRemoval();
+            }
+            // 工作流调用时，不显示错误提示，让错误向上传播
+            throw new Error(data.error || '文字去除失败');
         }
     } catch (error) {
         console.error('[文字去除] 错误:', error);
-        document.getElementById('te-canvas-loading').style.display = 'none';
-        showNotification('文字去除失败: ' + error.message, 'error', 3000);
-        cancelTextRemoval();
+        if (!skipLoadingState) {
+            document.getElementById('te-canvas-loading').style.display = 'none';
+            showNotification('文字去除失败: ' + error.message, 'error', 3000);
+            cancelTextRemoval();
+        }
+        // 重新抛出错误，让调用者处理
+        throw error;
     }
 }
 

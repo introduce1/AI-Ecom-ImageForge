@@ -55,9 +55,17 @@ function initUploadArea() {
     const uploadArea = document.getElementById('upload-area');
     const imageInput = document.getElementById('image-input');
     
+    // 绑定文件选择事件
+    if (imageInput) {
+        imageInput.addEventListener('change', function(e) {
+            console.log('[上传] 文件选择事件触发', e.target.files);
+            handleImageUpload(e);
+        });
+    }
+    
     // 点击上传
     uploadArea.addEventListener('click', (e) => {
-        if (e.target !== imageInput) {
+        if (e.target !== imageInput && !e.target.closest('.upload-btn')) {
             imageInput.click();
         }
     });
@@ -102,17 +110,44 @@ function initEventListeners() {
 
 // 处理图片上传
 function handleImageUpload(event) {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-        handleImageFile(file);
+    console.log('[上传] handleImageUpload 被调用');
+    const fileInput = event.target;
+    const file = fileInput.files && fileInput.files[0];
+    
+    if (!file) {
+        console.warn('[上传] 未选择文件');
+        return;
     }
+    
+    console.log('[上传] 选择的文件:', file.name, file.type, file.size);
+    
+    if (!file.type || !file.type.startsWith('image/')) {
+        alert('请选择图片文件！');
+        fileInput.value = ''; // 清空以便重新选择
+        return;
+    }
+    
+    handleImageFile(file);
 }
 
 // 处理图片文件
 function handleImageFile(file) {
+    console.log('[上传] 开始读取文件:', file.name);
+    
     const reader = new FileReader();
     
+    reader.onerror = function(error) {
+        console.error('[上传] 文件读取失败:', error);
+        alert('文件读取失败，请重试！');
+        // 清空 input，允许重新选择
+        const imageInput = document.getElementById('image-input');
+        if (imageInput) {
+            imageInput.value = '';
+        }
+    };
+    
     reader.onload = function(e) {
+        console.log('[上传] 文件读取成功，准备初始化裁剪器');
         originalImage = e.target.result;
         initCropper(originalImage);
     };
@@ -122,24 +157,47 @@ function handleImageFile(file) {
 
 // 初始化裁剪器
 function initCropper(imageSrc) {
+    console.log('[裁剪器] 开始初始化，图片源长度:', imageSrc ? imageSrc.length : 0);
+    
     const uploadArea = document.getElementById('upload-area');
     const cropContainer = document.getElementById('crop-container');
     const cropImage = document.getElementById('crop-image');
     const applyBtn = document.getElementById('apply-btn');
     const cropInfo = document.getElementById('crop-info');
     
+    if (!uploadArea || !cropContainer || !cropImage) {
+        console.error('[裁剪器] DOM 元素未找到');
+        return;
+    }
+    
     // 隐藏上传区域，显示裁剪容器
     uploadArea.style.display = 'none';
     cropContainer.style.display = 'block';
     cropInfo.style.display = 'block';
     
-    // 设置图片源
-    cropImage.src = imageSrc;
+    console.log('[裁剪器] 界面切换完成');
     
     // 销毁旧的裁剪器实例
     if (cropper) {
+        console.log('[裁剪器] 销毁旧实例');
         cropper.destroy();
+        cropper = null;
     }
+    
+    // 清除旧的 onload 事件监听器
+    cropImage.onload = null;
+    cropImage.onerror = null;
+    
+    // 设置错误处理
+    cropImage.onerror = function() {
+        console.error('[裁剪器] 图片加载失败');
+        alert('图片加载失败，请重试！');
+        resetEditor();
+    };
+    
+    // 设置图片源
+    cropImage.src = imageSrc;
+    console.log('[裁剪器] 图片源已设置，等待加载');
     
     // 根据当前模式初始化裁剪器
     const cropperOptions = {
@@ -156,18 +214,28 @@ function initCropper(imageSrc) {
         toggleDragModeOnDblclick: false,
         minCropBoxWidth: MIN_WIDTH,
         minCropBoxHeight: MIN_HEIGHT,
+        ready: function() {
+            console.log('[裁剪器] 裁剪器已就绪');
+            applyBtn.disabled = false;
+            // 应用当前模式
+            applyCurrentMode();
+        },
         crop: function(event) {
             updateCropInfo(event.detail);
         }
     };
     
-    // 等待图片加载
+    // 等待图片加载完成后初始化裁剪器
     cropImage.onload = function() {
-        cropper = new Cropper(cropImage, cropperOptions);
-        applyBtn.disabled = false;
-        
-        // 应用当前模式
-        applyCurrentMode();
+        console.log('[裁剪器] 图片加载完成，创建裁剪器实例');
+        try {
+            cropper = new Cropper(cropImage, cropperOptions);
+            console.log('[裁剪器] 裁剪器实例创建成功');
+        } catch (error) {
+            console.error('[裁剪器] 创建失败:', error);
+            alert('裁剪器初始化失败：' + error.message);
+            resetEditor();
+        }
     };
 }
 

@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>AI 影像工作室</title>
     <link rel="stylesheet" href="css/style.css?v=2.6">
-    <script src="js/app.js?v=2.6"></script>
+    <script src="js/app.js?v=3.0"></script>
     <script src="js/text_editor.js?v=1.0"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
@@ -56,12 +56,67 @@
                         </button>
                         <input type="file" id="chat-image-input" accept="image/*" multiple style="display: none;" onchange="handleChatImageUpload(this)">
                         <textarea class="chat-textarea" id="chat-input" placeholder="输入一句描述让AI帮你设计... (可上传多张图片)" rows="1" oninput="autoResizeTextarea(this)"></textarea>
+                        
+                        <!-- 模型选择器（首页：向下弹出） -->
+                        <div class="model-selector-container">
+                            <button class="model-selector-btn model-selector-btn-inline" id="home-model-selector-btn" onclick="toggleModelSelector('home')">
+                                <span class="model-selector-text" id="home-model-name">Auto</span>
+                                <svg class="model-selector-arrow" viewBox="0 0 24 24" width="14" height="14">
+                                    <path fill="currentColor" d="M7 10l5 5 5-5z"/>
+                                </svg>
+                            </button>
+                            <div class="model-selector-menu" id="home-model-selector-menu" style="display: none;">
+                                <div class="model-selector-header">
+                                    <span>选择模型</span>
+                                </div>
+                                <div class="model-auto-switch">
+                                    <label class="auto-switch-label">
+                                        <input type="checkbox" id="home-auto-mode" onchange="toggleAutoMode('home', this.checked)" checked>
+                                        <span class="switch-slider"></span>
+                                    </label>
+                                    <div class="auto-switch-info">
+                                        <span class="auto-switch-title">Auto</span>
+                                        <span class="auto-switch-desc">自动选择最佳模型</span>
+                                    </div>
+                                </div>
+                                <div class="model-list" id="home-model-list">
+                                    <!-- 模型列表由后端 API 动态加载 -->
+                                    <div class="model-item" data-model-id="gemini-3-pro" onclick="selectModel('home', 'gemini-3-pro')">
+                                        <div class="model-item-icon">✓</div>
+                                        <div class="model-item-info">
+                                            <div class="model-item-name">Gemini 3 Pro</div>
+                                            <div class="model-item-desc">图片编辑处理</div>
+                                        </div>
+                                        <button class="model-item-config-btn" onclick="event.stopPropagation(); openModelConfigByModelId('gemini-3-pro')" title="配置 Gemini 3 Pro">
+                                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                                <path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                        </div>
+                            </div>
+                        </div>
+                        
                         <button class="chat-send-btn" onclick="sendChatMessage()">发送</button>
                     </div>
                     
                     <!-- 多图片预览容器 -->
                     <div class="home-images-preview" id="home-images-preview" style="display: none;">
                         <!-- 图片预览将动态添加 -->
+                    </div>
+                    
+                    <!-- 参考图上传区域 -->
+                    <div class="ref-image-upload-section" id="home-ref-section" style="margin-top: 16px; display: none;">
+                        <div class="ref-upload-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                            <h4 style="font-size: 14px; color: #374151; margin: 0;">参考图 (可选)</h4>
+                            <button class="ref-upload-btn" onclick="document.getElementById('home-ref-image-input').click()" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.2s;">
+                                上传参考图
+                            </button>
+                            <input type="file" id="home-ref-image-input" accept="image/*" multiple style="display: none;" onchange="handleHomeRefImageUpload(this)">
+                        </div>
+                        <div class="ref-images-preview" id="home-ref-images-preview" style="display: flex; flex-wrap: wrap; gap: 12px;">
+                            <!-- 参考图预览将动态添加 -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -109,6 +164,14 @@
                                 <svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 17h2v-2H7v2zm0-4h2v-2H7v2zm0-4h2V7H7v2zm4 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V7h-2v2zm4 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V7h-2v2z"/></svg>
                             </div>
                             <h4>尺寸编辑</h4>
+                        </div>
+
+                        <div class="feature-card" onclick="showPage('poke-art')">
+                            <div class="feature-icon-wrapper">
+                                <svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/></svg>
+                            </div>
+                            <h4>戳戳秀生成</h4>
+                            <p class="feature-badge">毛线风格</p>
                         </div>
                     </div>
                 </div>
@@ -313,10 +376,7 @@
                     <div class="toolbar-style-controls" id="te-toolbar-style-controls" style="display: none;">
                         <!-- 字体 -->
                         <select id="te-font-family" class="toolbar-select" onchange="updateTextStyle('fontFamily', this.value)" title="字体">
-                            <option value="MiSans" selected>MiSans</option>
-                            <option value="喜鹊招牌体">喜鹊招牌体</option>
-                            <option value="喜鹊聚珍体">喜鹊聚珍体</option>
-                            <option value="NotoSansCJK">NotoSansCJK</option>
+                            <option value="MiSans" selected>加载中...</option>
                         </select>
                         <!-- 字号 -->
                         <div class="toolbar-input-group">
@@ -934,9 +994,64 @@
                             </div>
                             
                             <textarea class="chat-page-textarea" id="chat-page-input" placeholder="输入消息... (可上传多张图片)" rows="1" oninput="autoResizeTextarea(this)"></textarea>
+                            
+                            <!-- 模型选择器（在输入框内，发送按钮左边） -->
+                            <div class="model-selector-container model-selector-inline">
+                                <button class="model-selector-btn model-selector-btn-inline" id="chat-model-selector-btn" onclick="toggleModelSelector('chat')">
+                                    <span class="model-selector-text" id="chat-model-name">Auto</span>
+                                    <svg class="model-selector-arrow" viewBox="0 0 24 24" width="14" height="14">
+                                        <path fill="currentColor" d="M7 10l5 5 5-5z"/>
+                                    </svg>
+                                </button>
+                                <div class="model-selector-menu" id="chat-model-selector-menu" style="display: none;">
+                                    <div class="model-selector-header">
+                                        <span>选择模型</span>
+                                    </div>
+                                    <div class="model-auto-switch">
+                                        <label class="auto-switch-label">
+                                            <input type="checkbox" id="chat-auto-mode" onchange="toggleAutoMode('chat', this.checked)" checked>
+                                            <span class="switch-slider"></span>
+                                        </label>
+                                        <div class="auto-switch-info">
+                                            <span class="auto-switch-title">Auto</span>
+                                            <span class="auto-switch-desc">自动选择最佳模型</span>
+                                        </div>
+                                    </div>
+                                    <div class="model-list" id="chat-model-list">
+                                        <!-- 模型列表由后端 API 动态加载 -->
+                                        <div class="model-item" data-model-id="gemini-3-pro" onclick="selectModel('chat', 'gemini-3-pro')">
+                                            <div class="model-item-icon">✓</div>
+                                            <div class="model-item-info">
+                                                <div class="model-item-name">Gemini 3 Pro</div>
+                                                <div class="model-item-desc">图片编辑处理</div>
+                                            </div>
+                                            <button class="model-item-config-btn" onclick="event.stopPropagation(); openModelConfigByModelId('gemini-3-pro')" title="配置 Gemini 3 Pro">
+                                                <svg viewBox="0 0 24 24" width="16" height="16">
+                                                    <path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                            </div>
+                                </div>
+                            </div>
+                            
                             <button class="chat-page-send-btn" onclick="sendChatPageMessage()">
                                 <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                             </button>
+                        </div>
+                        
+                        <!-- 参考图上传区域 -->
+                        <div class="ref-image-upload-section" id="chat-ref-section" style="margin-top: 16px; display: none;">
+                            <div class="ref-upload-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                                <h4 style="font-size: 14px; color: #374151; margin: 0;">参考图 (可选)</h4>
+                                <button class="ref-upload-btn" onclick="document.getElementById('chat-ref-image-input').click()" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.2s;">
+                                    上传参考图
+                                </button>
+                                <input type="file" id="chat-ref-image-input" accept="image/*" multiple style="display: none;" onchange="handleChatRefImageUpload(this)">
+                            </div>
+                            <div class="ref-images-preview" id="chat-ref-images-preview" style="display: flex; flex-wrap: wrap; gap: 12px;">
+                                <!-- 参考图预览将动态添加 -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1047,6 +1162,113 @@
             </div>
         </div>
 
+        <!-- 戳戳秀生成页面 -->
+        <div id="poke-art-page" class="page">
+            <div class="page-header">
+                <button class="back-btn" onclick="showPage('home')">← 返回首页</button>
+                <h2>戳戳秀风格转换</h2>
+                <p style="font-size: 13px; color: #718096; margin-top: 8px;">将图片转换成专业戳戳秀风格，保持原图尺寸和内容，仅改变风格质感</p>
+                <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
+                    💡 提示：生成的图片将保持与原图相同的尺寸和比例，仅应用戳戳秀风格效果
+                </p>
+            </div>
+            
+            <div class="batch-container">
+                <!-- 左侧：上传和配置区域 -->
+                <div class="batch-left">
+                    <div class="batch-section">
+                        <!-- 上传图片 -->
+                        <h3 class="batch-section-title">上传图片</h3>
+                        <div class="batch-upload-row">
+                            <div class="upload-btn-wrapper">
+                                <button class="upload-trigger-btn" onclick="document.getElementById('poke-art-file').click()">
+                                    上传图片
+                                </button>
+                                <input type="file" id="poke-art-file" accept="image/*" multiple onchange="handlePokeArtUpload(this)" style="display: none;">
+                                <span class="upload-count" id="poke-art-count">0/10</span>
+                            </div>
+                            <div class="upload-display-area" id="poke-art-display">
+                                <div class="empty-hint" id="poke-art-empty-hint">
+                                    <p>点击左侧按钮上传要转换的图片</p>
+                                    <p style="font-size: 12px; color: #999; margin-top: 4px;">最多10张，内容会被保留，只改变风格</p>
+                                </div>
+                                <div id="poke-art-previews" class="batch-previews-grid" style="display: none;">
+                                    <!-- 预览将动态添加 -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 文字描述 -->
+                        <div class="poke-art-config">
+                            <h4 class="config-title">风格描述（可选）</h4>
+                            <textarea id="poke-art-prompt" class="poke-art-textarea" 
+                                placeholder="描述你想要的戳戳秀风格细节，如：更细腻的毛线纹理、更鲜艳的色彩等（留空使用默认戳戳秀风格）"></textarea>
+                            <p style="font-size: 12px; color: #666; margin-top: 8px;">
+                                💡 <strong>专业提示：</strong>
+                            </p>
+                            <ul style="font-size: 11px; color: #666; margin-top: 4px; margin-left: 20px; line-height: 1.6;">
+                                <li>可以不填写，系统会自动应用专业戳戳秀风格</li>
+                                <li>如想调整：描述纹理、色彩、密度等风格特征</li>
+                                <li>生成的图片将保持与原图相同的尺寸和比例</li>
+                                <li>不要描述图片内容（如"猫"、"狗"），只描述风格</li>
+                            </ul>
+                            
+                            <!-- 模型选择 -->
+                            <div style="margin-top: 16px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <label style="font-size: 13px; font-weight: 500; color: #333;">选择模型：</label>
+                                    <select id="poke-art-model" class="poke-art-select" style="flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
+                                        <option value="gemini-3-pro">Gemini 3 Pro - 图片编辑</option>
+                                    </select>
+                                    <button class="poke-art-config-btn" onclick="openPokeArtModelConfig()" title="模型配置">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor">
+                                            <circle cx="8" cy="8" r="2"/>
+                                            <path d="M8 2v2M8 12v2M2 8h2M12 8h2"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p style="font-size: 11px; color: #999; margin-top: 4px;">💡 可选择不同的图片编辑模型，每个模型风格略有不同</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 进度条 -->
+                        <div id="poke-art-progress" class="batch-progress" style="display: none;">
+                            <div class="progress-bar-wrapper">
+                                <div id="poke-art-progress-bar" class="progress-bar"></div>
+                            </div>
+                            <p id="poke-art-progress-text" class="progress-text">准备生成...</p>
+                        </div>
+                        
+                        <!-- 生成按钮 -->
+                        <button class="process-btn" id="poke-art-process-btn" onclick="processPokeArt()" disabled>开始生成戳戳秀</button>
+                    </div>
+                </div>
+                
+                <!-- 右侧：结果区域 -->
+                <div class="batch-right">
+                    <div class="batch-section batch-result-section">
+                        <h3 class="batch-section-title">生成结果</h3>
+                        <div id="poke-art-result" class="batch-result-empty">
+                            <svg viewBox="0 0 24 24" width="48" height="48" style="opacity: 0.3; margin-bottom: 10px;">
+                                <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                                <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                                <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+                                <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
+                                <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+                            </svg>
+                            <p style="color: #999;">温馨的毛线戳戳秀将显示在这里</p>
+                        </div>
+                        <div id="poke-art-results-grid" class="batch-results-grid" style="display: none;">
+                            <!-- 结果将动态添加 -->
+                        </div>
+                        <div class="result-actions" style="display: none;" id="poke-art-download-section">
+                            <button class="download-btn" onclick="downloadPokeArtZip()">📦 打包下载全部</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 批量产品迁移页面 -->
         <div id="batch-migration-page" class="page">
             <div class="page-header">
@@ -1151,6 +1373,24 @@
             </div>
         </div>
 
+    </div>
+    
+    <!-- 模型配置弹窗 -->
+    <div class="model-config-modal" id="model-config-modal" style="display: none;">
+        <div class="model-config-overlay" onclick="closeModelConfig()"></div>
+        <div class="model-config-dialog">
+            <div class="model-config-header">
+                <h3 id="model-config-title">模型配置</h3>
+                <button class="model-config-close" onclick="closeModelConfig()">×</button>
+            </div>
+            <div class="model-config-body" id="model-config-body">
+                <!-- 配置项将动态生成 -->
+            </div>
+            <div class="model-config-footer">
+                <button class="model-config-reset-btn" onclick="resetModelConfig()">恢复默认</button>
+                <button class="model-config-save-btn" onclick="saveModelConfig()">保存配置</button>
+            </div>
+        </div>
     </div>
 
 </body>

@@ -1,7 +1,10 @@
 # ==========================================
 # AI 图像处理助手 - Flask 后端服务器
-# 使用 Gemini 3 Pro Image Edit 模型
+# 支持多个图像处理模型
 # ==========================================
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
@@ -9,6 +12,7 @@ import os
 import requests
 import base64
 import uuid
+import json
 from werkzeug.utils import secure_filename
 from image_uploader import ImageUploader
 from local_storage import LocalImageStorage
@@ -17,6 +21,7 @@ import image_processing
 from PIL import Image
 import io
 from ocr_service import get_ocr_service
+from models.jiekou_client import FluxKontextDevProvider, GPTImageProvider, QwenImageProvider, Gemini3ProImageProvider, FluxSchnellProvider, SD35LargeProvider, RecraftV3Provider
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -28,13 +33,166 @@ def serve_logo(filename):
     from flask import send_from_directory
     return send_from_directory('LOGO', filename)
 
-GEMINI3_PRO_API_KEY = "sk_HLvA0uFTKfimSnd9-XKIvkA-EZYK6_oDqWm3WuKv5Hc"
+GEMINI3_PRO_API_KEY = os.getenv("GEMINI3_PRO_API_KEY", "")
 
 gemini3_client = Gemini3ProClient(GEMINI3_PRO_API_KEY) if GEMINI3_PRO_API_KEY else None
 prompt_agent = ImageEditingPrompts()
 
 # 全局进度跟踪（内存存储）
 batch_progress = {}
+
+# ==========================================
+# 模型管理器
+# ==========================================
+class ModelManager:
+    """统一管理所有图像处理模型"""
+    
+    def __init__(self):
+        self.models = {}
+        self._init_models()
+    
+    def _init_models(self):
+        """初始化所有模型"""
+        try:
+            # Gemini 3 Pro（图像编辑专用）
+            if gemini3_client:
+                self.models['gemini-3-pro'] = {
+                    'name': 'Gemini 3 Pro',
+                    'display_name': 'Gemini 3 Pro - 图片编辑',
+                    'client': gemini3_client,
+                    'type': 'gemini',
+                    'category': '图生图',
+                    'description': '专业图像编辑模型'
+                }
+                print("[模型] [OK] Gemini 3 Pro 已加载")
+            
+            # FLUX.1 Kontext Dev（文生图 + 图生图）
+            try:
+                flux_kontext_dev = FluxKontextDevProvider()
+                self.models['jiekou-flux-kontext-dev'] = {
+                    'name': 'FLUX.1 Kontext Dev',
+                    'display_name': 'FLUX.1 Kontext Dev',
+                    'client': flux_kontext_dev,
+                    'type': 'jiekou',
+                    'category': '文生图 + 图生图',
+                    'description': '高质量提示词生成和图像编辑'
+                }
+                print("[模型] [OK] FLUX.1 Kontext Dev 已加载")
+            except Exception as e:
+                print(f"[模型] [警告] FLUX.1 Kontext Dev 加载失败: {e}")
+            
+            # GPT 文生图
+            try:
+                gpt_image = GPTImageProvider()
+                self.models['jiekou-gpt-image'] = {
+                    'name': 'GPT 文生图',
+                    'display_name': 'GPT 文生图',
+                    'client': gpt_image,
+                    'type': 'jiekou',
+                    'category': '文生图',
+                    'description': '多种尺寸和质量选项'
+                }
+                print("[模型] [OK] GPT 文生图 已加载")
+            except Exception as e:
+                print(f"[模型] [警告] GPT 文生图 加载失败: {e}")
+            
+            # Qwen-Image 图像编辑
+            try:
+                qwen_image = QwenImageProvider()
+                self.models['jiekou-qwen-image'] = {
+                    'name': 'Qwen-Image 图像编辑',
+                    'display_name': 'Qwen-Image',
+                    'client': qwen_image,
+                    'type': 'jiekou',
+                    'category': '图生图',
+                    'description': '20B MMDiT 图像编辑模型'
+                }
+                print("[模型] [OK] Qwen-Image 已加载")
+            except Exception as e:
+                print(f"[模型] [警告] Qwen-Image 加载失败: {e}")
+            
+            # Gemini 3 Pro Image Preview
+            try:
+                gemini3_image = Gemini3ProImageProvider()
+                self.models['jiekou-gemini3-pro-image'] = {
+                    'name': 'Gemini 3 Pro Image',
+                    'display_name': 'Gemini 3 Pro Image Preview',
+                    'client': gemini3_image,
+                    'type': 'jiekou',
+                    'category': '文生图',
+                    'description': 'Nano Banana 高质量图像生成'
+                }
+                print("[模型] [OK] Gemini 3 Pro Image 已加载")
+            except Exception as e:
+                print(f"[模型] [警告] Gemini 3 Pro Image 加载失败: {e}")
+            
+            # FLUX.1 Schnell
+            try:
+                flux_schnell = FluxSchnellProvider()
+                self.models['jiekou-flux-schnell'] = {
+                    'name': 'FLUX.1 Schnell',
+                    'display_name': 'FLUX.1 Schnell',
+                    'client': flux_schnell,
+                    'type': 'jiekou',
+                    'category': '文生图',
+                    'description': '快速高质量图像生成'
+                }
+                print("[模型] [OK] FLUX.1 Schnell 已加载")
+            except Exception as e:
+                print(f"[模型] [警告] FLUX.1 Schnell 加载失败: {e}")
+            
+            # Stable Diffusion 3.5 Large
+            try:
+                sd35_large = SD35LargeProvider()
+                self.models['jiekou-sd35-large'] = {
+                    'name': 'SD 3.5 Large',
+                    'display_name': 'Stable Diffusion 3.5 Large',
+                    'client': sd35_large,
+                    'type': 'jiekou',
+                    'category': '文生图',
+                    'description': '高质量详细图像生成'
+                }
+                print("[模型] [OK] SD 3.5 Large 已加载")
+            except Exception as e:
+                print(f"[模型] [警告] SD 3.5 Large 加载失败: {e}")
+            
+            # Recraft V3
+            try:
+                recraft_v3 = RecraftV3Provider()
+                self.models['jiekou-recraft-v3'] = {
+                    'name': 'Recraft V3',
+                    'display_name': 'Recraft V3',
+                    'client': recraft_v3,
+                    'type': 'jiekou',
+                    'category': '文生图',
+                    'description': '设计风格图像生成'
+                }
+                print("[模型] [OK] Recraft V3 已加载")
+            except Exception as e:
+                print(f"[模型] [警告] Recraft V3 加载失败: {e}")
+        
+        except Exception as e:
+            print(f"[模型] [错误] 模型初始化错误: {e}")
+    
+    def get_model(self, model_id):
+        """获取指定模型"""
+        return self.models.get(model_id)
+    
+    def list_models(self):
+        """列出所有可用模型"""
+        return {
+            model_id: {
+                'name': info['name'],
+                'display_name': info.get('display_name', info['name']),
+                'type': info['type'],
+                'category': info.get('category', '未分类'),
+                'description': info.get('description', '')
+            }
+            for model_id, info in self.models.items()
+        }
+
+# 创建模型管理器实例
+model_manager = ModelManager()
 
 # ==========================================
 # 图片存储配置
@@ -93,33 +251,107 @@ def _bytes_to_base64(image_bytes: bytes) -> str:
     return base64.b64encode(image_bytes).decode('utf-8')
 
 
-def _file_to_base64(file_storage) -> str:
+def _file_to_base64(file_storage, max_dimension: int = 4096) -> str:
+    """
+    将文件转换为base64，优化大图处理速度
+    
+    Args:
+        file_storage: 文件对象
+        max_dimension: 最大尺寸限制（超过则缩小，加快编码速度）
+    """
     # 读取文件内容
     file_bytes = file_storage.read()
     
-    # 尝试转换图片格式 (例如 AVIF -> PNG)以确保 API 兼容性
+    # 优化：对于超大图片，先缩小尺寸再编码（大幅减少编码时间）
+    needs_resize = False
+    needs_conversion = False
+    
     try:
-        # 使用 Pillow 打开图片
+        # 快速检测图片格式和尺寸
         img = Image.open(io.BytesIO(file_bytes))
+        width, height = img.size
         
-        # 检查是否需要转换 (非 JPEG/PNG 或特殊模式)
-        # 很多 API 不支持 AVIF, WEBP 等，统转 PNG 最安全
-        if img.format not in ['JPEG', 'PNG'] or img.mode == 'CMYK':
-            print(f"[处理] 检测到图片格式 {img.format} (Mode: {img.mode})，正在转换为 PNG...")
-            
-            output_buffer = io.BytesIO()
-            # 转换 CMYK 到 RGB (PNG 不支持 CMYK)
-            if img.mode == 'CMYK':
+        # 如果图片过大，缩小到max_dimension以内（加快base64编码速度）
+        if width > max_dimension or height > max_dimension:
+            needs_resize = True
+            # 计算缩放比例
+            scale = max_dimension / max(width, height)
+            new_width = int(width * scale)
+            new_height = int(height * scale)
+        
+        # 检查是否需要格式转换
+        if img.mode == 'CMYK' or img.format not in ['JPEG', 'PNG']:
+            needs_conversion = True
+        
+        # 如果需要处理，统一处理
+        if needs_resize or needs_conversion:
+            if needs_resize:
+                # 使用LANCZOS高质量缩放，但速度较快
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            if needs_conversion and img.mode == 'CMYK':
                 img = img.convert('RGB')
-                
-            img.save(output_buffer, format="PNG")
-            file_bytes = output_buffer.getvalue()
             
-    except Exception as e:
-        print(f"[处理] 图片格式检查/转换失败 (将使用原始数据): {e}")
-        # 如果 Pillow 无法打开，则回退到原始数据
+            # 保存处理后的图片（使用JPEG格式，更小更快）
+            output_buffer = io.BytesIO()
+            # 使用JPEG格式，质量85（平衡质量和大小）
+            img.save(output_buffer, format="JPEG", quality=85, optimize=False)
+            file_bytes = output_buffer.getvalue()
         
+        img.close()
+    except:
+        # 如果处理失败，使用原始文件
+        pass
+    
     return _bytes_to_base64(file_bytes)
+
+
+def _handle_gemini_api_error(e: Exception) -> tuple:
+    """
+    处理 Gemini API 异常，返回友好的错误响应
+    
+    Returns:
+        (response_dict, status_code) 元组
+    """
+    from gemini3_pro_client import (
+        GeminiBillingError, 
+        GeminiQuotaExceededError, 
+        GeminiTaskFailedError,
+        GeminiAPIError
+    )
+    
+    if isinstance(e, GeminiBillingError):
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": "billing_error",
+            "suggestion": "这是API服务商的计费系统问题，通常是临时性的。请稍后重试，或联系服务商检查账户状态。"
+        }, 500
+    elif isinstance(e, GeminiQuotaExceededError):
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": "quota_exceeded",
+            "suggestion": "API调用配额已用完。请检查账户余额或等待配额重置。"
+        }, 500
+    elif isinstance(e, GeminiTaskFailedError):
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": "task_failed",
+            "suggestion": "AI无法处理此任务。可能的原因：1) 提示词不够清晰，2) 图片内容不适合处理，3) 图片质量或格式问题。请尝试：调整提示词、更换图片或简化需求。"
+        }, 500
+    elif isinstance(e, GeminiAPIError):
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": "api_error"
+        }, 500
+    
+    # 其他异常返回通用错误
+    return {
+        "success": False,
+        "error": str(e)
+    }, 500
 
 
 def _gemini_edit_to_local_url(prompt: str, image_base64s, aspect_ratio: str = None, size: str = None) -> str:
@@ -138,6 +370,62 @@ def _gemini_edit_to_local_url(prompt: str, image_base64s, aspect_ratio: str = No
     if not result.get("success"):
         raise RuntimeError(result.get("error") or "生成失败")
     return result["image_url"]
+
+
+def _calculate_aspect_ratio(width: int, height: int) -> str:
+    """
+    根据图片尺寸计算最接近的 aspect_ratio
+    
+    Args:
+        width: 图片宽度
+        height: 图片高度
+        
+    Returns:
+        最接近的 aspect_ratio 字符串
+    """
+    # 支持的宽高比列表
+    supported_ratios = {
+        "1:1": 1.0,
+        "3:2": 1.5,
+        "2:3": 2/3,
+        "3:4": 0.75,
+        "4:3": 4/3,
+        "4:5": 0.8,
+        "5:4": 1.25,
+        "9:16": 9/16,
+        "16:9": 16/9,
+        "21:9": 21/9,
+    }
+    
+    current_ratio = width / height
+    
+    # 找到最接近的宽高比
+    min_diff = float('inf')
+    best_ratio = "1:1"
+    
+    for ratio_str, ratio_value in supported_ratios.items():
+        diff = abs(current_ratio - ratio_value)
+        if diff < min_diff:
+            min_diff = diff
+            best_ratio = ratio_str
+    
+    return best_ratio
+
+
+def _select_optimal_size(width: int, height: int) -> str:
+    """
+    根据图片尺寸选择合适的 size 参数（优化：默认1K，加快响应）
+    
+    Args:
+        width: 图片宽度
+        height: 图片高度
+        
+    Returns:
+        size 字符串 ("1K", "2K", "4K")
+    """
+    # 优化：默认使用1K，确保快速响应（20s内）
+    # 用户可以在配置中手动选择2K/4K追求更高质量
+    return "1K"
 
 
 def _gemini_edit_to_local_url_with_resize(
@@ -166,9 +454,21 @@ def _gemini_edit_to_local_url_with_resize(
     if missing:
         raise RuntimeError(missing["error"])
 
-    # 先生成图片
+    # 优化：如果没有提供 aspect_ratio 和 size，根据目标尺寸自动计算
+    if not aspect_ratio:
+        aspect_ratio = _calculate_aspect_ratio(target_width, target_height)
+        print(f"[优化] 自动计算宽高比: {aspect_ratio} (目标: {target_width}x{target_height})")
+    
+    if not size:
+        size = _select_optimal_size(target_width, target_height)
+        print(f"[优化] 自动选择尺寸: {size} (目标: {target_width}x{target_height})")
+    
+    # 在提示词中明确要求输出尺寸（增强匹配度）
+    enhanced_prompt = f"{prompt}\n\n[严格要求] 输出图片必须精确匹配尺寸：{target_width}×{target_height}像素，不允许任何偏差。"
+    
+    # 生成图片（使用优化后的参数）
     image_bytes = gemini3_client.edit_image_to_bytes(
-        prompt=prompt,
+        prompt=enhanced_prompt,
         image_base64s=image_base64s,
         aspect_ratio=aspect_ratio,
         size=size,
@@ -180,9 +480,9 @@ def _gemini_edit_to_local_url_with_resize(
     print(f"[处理] 生成图片尺寸: {generated_width}x{generated_height}")
     print(f"[处理] 目标图片尺寸: {target_width}x{target_height}")
     
-    # 如果尺寸不匹配，调整到目标尺寸
+    # 如果尺寸不匹配，调整到目标尺寸（优化后应该更少出现）
     if generated_width != target_width or generated_height != target_height:
-        print(f"[处理] 调整图片尺寸到: {target_width}x{target_height}")
+        print(f"[处理] ⚠️ 尺寸不匹配，调整到: {target_width}x{target_height}")
         image_bytes = image_processing.resize_to_dimensions(
             image_bytes, 
             target_width, 
@@ -190,7 +490,7 @@ def _gemini_edit_to_local_url_with_resize(
             maintain_quality=True
         )
     else:
-        print(f"[处理] 尺寸已匹配，无需调整")
+        print(f"[处理] ✅ 尺寸已匹配，无需调整")
     
     # 保存到本地
     output_dir = os.path.join(app.static_folder, "uploads")
@@ -228,20 +528,28 @@ def uploaded_file(filename):
         return jsonify({"error": "文件不存在", "filename": filename, "path": file_path}), 404
     return send_from_directory(uploads_dir, filename)
 
-@app.route('/<path:path>')
-def static_files(path):
-    return send_from_directory('static', path)
-
 # ==========================================
 # API 路由 - 使用 Gemini 3 Pro 模型
 # ==========================================
 
 @app.route('/api/chat', methods=['POST'])
 def chat_route():
-    """AI 助手对话接口（支持多张图片）"""
+    """AI 助手对话接口（支持多张图片和多模型）"""
     print(f"\n[API] ========== Chat 请求 ==========")
     
     prompt = request.form.get('prompt', '')
+    model_id = request.form.get('model_id', 'gemini-3-pro')  # 默认使用 Gemini
+    model_config_str = request.form.get('model_config', '{}')
+    
+    # 解析模型配置
+    try:
+        model_config = json.loads(model_config_str) if model_config_str else {}
+    except:
+        model_config = {}
+    
+    print(f"[API] 选择模型: {model_id}")
+    if model_config:
+        print(f"[API] 模型配置: {model_config}")
     
     # 支持多张图片
     image_count = request.form.get('image_count')
@@ -263,52 +571,371 @@ def chat_route():
             images.append(image_file)
             print(f"[API] 用户上传图片: {image_file.filename}")
     
+    # 支持参考图（用于图生图）
+    ref_image_count = request.form.get('ref_image_count')
+    ref_images = []
+    
+    if ref_image_count:
+        ref_image_count = int(ref_image_count)
+        print(f"[API] 用户上传了 {ref_image_count} 张参考图")
+        for i in range(ref_image_count):
+            ref_img_file = request.files.get(f'ref_image{i}')
+            if ref_img_file:
+                ref_images.append(ref_img_file)
+                print(f"[API] 参考图{i+1}: {ref_img_file.filename}")
+    
     print(f"[API] 用户输入: {prompt}")
+    
+    # 获取模型信息
+    model_info = model_manager.get_model(model_id)
+    if not model_info:
+        return jsonify({"success": False, "error": f"模型 {model_id} 不可用"}), 400
+    
+    print(f"[API] 使用模型: {model_info['name']} ({model_info['type']})")
+        
+    # 检测是否是戳戳秀模式（通过模型ID或关键词判断）
+    is_poke_art_mode = model_id == 'gemini-3-pro' and ('poke' in prompt.lower() or '戳戳秀' in prompt or not prompt.strip())
         
     try:
-        # 1. 如果有图片，优先进行基于图片的编辑/生成
-        if images:
-            # 将所有图片转为 base64
-            image_base64s = [_file_to_base64(img) for img in images]
-            
-            final_prompt = prompt if prompt else "Optimize this image, make it look better, high quality, 8k."
-            
-            print(f"[API] 处理 {len(image_base64s)} 张图片，提示词: {final_prompt}")
-
-            image_url = _gemini_edit_to_local_url(
-                prompt=final_prompt,
-                image_base64s=image_base64s,
-            )
-
-            return jsonify({
-                "success": True,
-                "message": "我已经根据你的要求处理了图片：",
-                "image_url": image_url,
-            })
+        # 根据模型类型处理
+        if model_info['type'] == 'gemini':
+            # Gemini 模型：主要用于图片编辑
+            if images:
+                # 优化：先获取原图尺寸（避免重复读取）
+                original_sizes = []
+                for img_file in images:
+                    img_file.seek(0)  # 重置文件指针
+                    try:
+                        img = Image.open(io.BytesIO(img_file.read()))
+                        original_sizes.append(img.size)  # (width, height)
+                        img.close()
+                    except Exception as e:
+                        print(f"[API] ⚠️ 无法获取原图尺寸: {e}")
+                        original_sizes.append(None)
+                    img_file.seek(0)  # 重置文件指针，供后续使用
                 
-        # 2. 如果只有文字，尝试文生图 (使用 Img2Img 接口 trick，或者返回提示)
-        # 由于当前 Client 是 Img2Img，如果没有图，我们暂时只能提示用户上传
-        # 或者，我们可以尝试用一个全黑/全白底图来做文生图 (Trick)
-        else:
+                # 将所有图片转为 base64（优化：限制尺寸加快编码）
+                # 对于大图，先缩小到4096以内再编码，大幅减少编码时间
+                import time
+                encode_start = time.time()
+                if len(images) > 1:
+                    image_base64s = [_file_to_base64(img, max_dimension=4096) for img in images]
+                else:
+                    image_base64s = [_file_to_base64(images[0], max_dimension=4096)]
+                encode_time = time.time() - encode_start
+                print(f"[优化] 图片编码耗时: {encode_time:.2f}秒")
+                
+                # 戳戳秀专用模式
+                if is_poke_art_mode:
+                    # 优化：减少日志输出，提升性能
+                    print(f"[API] 🧶 戳戳秀模式: {len(image_base64s)}张")
+                    
+                    # 构建戳戳秀优化提示词（控制在1980字符，强调色彩准确性，无光影效果）
+                    poke_art_system_prompt = """Transform the entire image into high-quality Punch Needle embroidery art. Preserve all original content, composition, and aspect ratio. Do not stretch, crop, or distort.
+
+**Material Requirements (Strict)**
+- Use ONLY yarn/wool material throughout entire image
+- Soft, fluffy yarn with visible fiber texture and fuzzy appearance
+- Never use: fabric, paper, felt, plastic, metal, silk thread, cotton cloth, or mixed materials
+- Every part must be yarn-based punch needle work
+
+**Yarn Physical Specifications**
+- Yarn diameter: 3mm, plump and uniform
+- Stitch spacing: 3-5mm, dense and regular arrangement
+- Complete coverage: 100% of image area filled with yarn loops
+
+**COLOR ACCURACY (CRITICAL - HIGHEST PRIORITY)**
+- Colors must EXACTLY match the original image with ZERO color deviation
+- Maintain original hue, saturation, and brightness values precisely
+- No color shifts, no color differences, no tonal changes whatsoever
+- Each color area must have consistent, vibrant yarn colors throughout
+- Preserve all color gradients and transitions exactly as in original
+- Use high-quality dyed yarn colors that perfectly match the source image
+- Avoid: dull colors, faded appearance, color inconsistency, muddy tones, desaturated colors
+
+**Visual Quality & Texture**
+- Macro perspective clearly showing yarn loop structure and individual fiber details
+- Professional craftsmanship: uniform stitches with consistent loop sizes
+- Visible individual yarn strands and fuzzy fiber texture on each loop
+- Clean, polished, professional appearance with no loose threads or messy areas
+- Slight 3D relief effect created naturally by yarn loop thickness
+- CRITICAL: Use flat, even, uniform lighting ONLY - NO shadows, NO light reflections, NO directional lighting effects, NO highlights on loops
+
+**Composition & Structure**
+- Transform 100% of the image - every element becomes punch needle embroidery
+- Preserve original subject, composition, and spatial layout perfectly
+- Maintain all fine details: facial features, objects, backgrounds, text if present
+- Keep original proportions and spatial relationships between elements
+- No distortion, warping, stretching, or perspective changes
+
+**Final Output Standards**
+- Commercial product photography quality with professional presentation
+- Warm, inviting, cozy aesthetic typical of handmade embroidery
+- Clear display of yarn craftsmanship and textile texture
+- Museum-quality handcrafted artwork appearance
+
+**Core Principle**: Create perfect commercial-grade yarn punch needle artwork appearing as professional handmade embroidery, with EXACT color matching to original image as absolute top priority, combined with visible yarn texture and impeccable craftsmanship."""
+
+                    # 如果用户有额外要求，附加到提示词末尾
+                    if prompt and prompt.strip() and 'poke' not in prompt.lower() and '戳戳' not in prompt:
+                        final_prompt = f"{poke_art_system_prompt}\n\n## 用户额外要求\n{prompt}"
+                    else:
+                        final_prompt = poke_art_system_prompt
+                    
+                    # 注意：不再在提示词中强制要求原图尺寸
+                    # 尺寸由用户配置决定（原图尺寸或固定尺寸档）
+                    if len(original_sizes) == 1 and original_sizes[0]:
+                        width, height = original_sizes[0]
+                        print(f"[API] 原图尺寸: {width}×{height}")
+                    elif len(original_sizes) > 1:
+                        size_info = []
+                        for idx, size in enumerate(original_sizes):
+                            if size:
+                                width, height = size
+                                size_info.append(f"第{idx+1}张: {width}×{height}像素")
+                        if size_info:
+                            print(f"[API] 原图尺寸: {', '.join(size_info)}")
+                    
+                    # 优化：只在调试时输出详细信息
+                    if len(final_prompt) > 1500:
+                        print(f"[API] 提示词: {len(final_prompt)}字符")
+                else:
+                    # 普通编辑模式
+                    final_prompt = prompt if prompt else "Optimize this image, make it look better, high quality, 8k."
+                
+                # 优化：减少日志输出
+                if len(image_base64s) > 1:
+                    print(f"[API] Gemini处理: {len(image_base64s)}张")
+
+                # 添加时间统计
+                import time
+                start_time = time.time()
+                api_start_time = None  # API调用开始时间
+                
+                # 从 model_config 中获取配置参数
+                use_original_size_ratio = model_config.get("use_original_size_ratio", False)  # 优先级最高的开关
+                config_aspect_ratio = model_config.get("aspect_ratio")
+                config_size = model_config.get("size")
+                use_original_size = model_config.get("use_original_size", False)  # 兼容旧逻辑
+                original_width = model_config.get("original_width")
+                original_height = model_config.get("original_height")
+                
+                # 如果没有从model_config获取到原图尺寸，尝试从original_sizes获取
+                if not original_width and len(original_sizes) == 1 and original_sizes[0]:
+                    original_width, original_height = original_sizes[0]
+                
+                # 戳戳秀模式：根据用户选择的尺寸生成
+                if is_poke_art_mode:
+                    # 优先级1：如果开启了"原图比例尺寸"开关，使用原图比例和尺寸
+                    if use_original_size_ratio and original_width and original_height:
+                        # 计算原图的宽高比
+                        calculated_aspect_ratio = _calculate_aspect_ratio(original_width, original_height)
+                        # 原图尺寸时，size 使用 1K（快速，优化响应时间）
+                        optimal_size = "1K"
+                        print(f"[优化] 原图比例尺寸模式: {original_width}x{original_height}, 宽高比: {calculated_aspect_ratio}, 尺寸档: {optimal_size}")
+                        api_start_time = time.time()
+                        image_url = _gemini_edit_to_local_url(
+                            prompt=final_prompt,
+                            image_base64s=image_base64s,
+                            aspect_ratio=calculated_aspect_ratio,
+                            size=optimal_size,
+                        )
+                        api_end_time = time.time()
+                        print(f"[API] 生成+保存耗时: {api_end_time - api_start_time:.2f}秒")
+                    # 优先级2：如果用户选择了"原图尺寸"（兼容旧逻辑）
+                    elif use_original_size and original_width and original_height:
+                        # 计算原图的宽高比
+                        calculated_aspect_ratio = config_aspect_ratio or _calculate_aspect_ratio(original_width, original_height)
+                        # 原图尺寸时，size 使用 1K（快速）或用户配置
+                        optimal_size = config_size if config_size and config_size != "original" else "1K"
+                        print(f"[优化] 使用原图尺寸: {original_width}x{original_height}, 宽高比: {calculated_aspect_ratio}, 尺寸档: {optimal_size}")
+                        image_url = _gemini_edit_to_local_url(
+                            prompt=final_prompt,
+                            image_base64s=image_base64s,
+                            aspect_ratio=calculated_aspect_ratio,
+                            size=optimal_size,
+                        )
+                    else:
+                        # 用户自定义：处理"原比例"选项
+                        if config_aspect_ratio == "original" and original_width and original_height:
+                            calculated_aspect_ratio = _calculate_aspect_ratio(original_width, original_height)
+                        else:
+                            calculated_aspect_ratio = config_aspect_ratio
+                        
+                        # 处理"原图尺寸"选项
+                        if config_size == "original":
+                            optimal_size = "1K"  # 原图尺寸时使用1K快速生成
+                        else:
+                            optimal_size = config_size or "1K"
+                        
+                        print(f"[优化] 使用配置尺寸: 宽高比={calculated_aspect_ratio}, 尺寸档={optimal_size}")
+                        image_url = _gemini_edit_to_local_url(
+                            prompt=final_prompt,
+                            image_base64s=image_base64s,
+                            aspect_ratio=calculated_aspect_ratio,
+                            size=optimal_size,
+                        )
+                else:
+                    # 普通编辑模式：使用用户配置
+                    # 处理"原比例"选项
+                    if config_aspect_ratio == "original" and original_width and original_height:
+                        calculated_aspect_ratio = _calculate_aspect_ratio(original_width, original_height)
+                    else:
+                        calculated_aspect_ratio = config_aspect_ratio
+                    
+                    image_url = _gemini_edit_to_local_url(
+                        prompt=final_prompt,
+                        image_base64s=image_base64s,
+                        aspect_ratio=calculated_aspect_ratio,
+                        size=config_size,
+                    )
+                
+                elapsed_time = time.time() - start_time
+                # 输出详细的时间分析
+                print(f"[API] ⏱️ 总耗时: {elapsed_time:.1f}秒 ({len(image_base64s)}张)")
+                if api_start_time:
+                    pre_api_time = api_start_time - start_time
+                    print(f"[时间分析] 前置处理: {pre_api_time:.2f}秒, 后续处理: {(elapsed_time - (api_end_time - start_time)):.2f}秒")
+
+                return jsonify({
+                    "success": True,
+                    "message": "🧶 戳戳秀风格转换完成！" if is_poke_art_mode else "我已经根据你的要求处理了图片：",
+                    "image_url": image_url,
+                })
+            else:
+                # Gemini 没有图片时的处理
+                if not prompt:
+                    return jsonify({"success": False, "error": "请输入内容"})
+                    
+                # 简单的关键词匹配，引导用户使用快捷功能
+                if "抠图" in prompt:
+                     return jsonify({"success": True, "message": "想要抠图？请点击下方的【产品抠图】功能，或者直接在对话框上传一张图片并告诉我'帮我抠图'。"})
+                if "放大" in prompt:
+                     return jsonify({"success": True, "message": "想要高清放大？请点击下方的【高清放大】功能，或者上传图片告诉我'放大图片'。"})
+                
+                return jsonify({
+                    "success": True, 
+                    "message": "Gemini 模型主要擅长处理图片。请上传一张图片，然后告诉我你想怎么修改它。如果想要文生图，请选择其他模型。"
+                })
+        
+        elif model_info['type'] == 'jiekou':
+            # Jiekou.ai 模型：支持文生图和图生图
             if not prompt:
-                return jsonify({"success": False, "error": "请输入内容"})
-                
-            # 简单的关键词匹配，引导用户使用快捷功能
-            if "抠图" in prompt:
-                 return jsonify({"success": True, "message": "想要抠图？请点击下方的【产品抠图】功能，或者直接在对话框上传一张图片并告诉我'帮我抠图'。"})
-            if "放大" in prompt:
-                 return jsonify({"success": True, "message": "想要高清放大？请点击下方的【高清放大】功能，或者上传图片告诉我'放大图片'。"})
+                return jsonify({"success": False, "error": "请输入生成描述"})
             
-            # 尝试作为生成指令 (Trick: 使用纯黑底图)
-            # 这里我们返回一个引导信息，因为没有底图效果可能不好
-            return jsonify({
-                "success": True, 
-                "message": "我目前主要擅长处理图片。请上传一张图片，然后告诉我你想怎么修改它（例如：'换成雪山背景'、'变成素描风格'）。"
-            })
+            # 准备图片（如果有）
+            image_base64s = None
+            
+            if images:
+                image_base64s = [_file_to_base64(img) for img in images]
+                print(f"[API] Jiekou {model_info['category']}: {len(image_base64s)} 张图片")
+            else:
+                print(f"[API] Jiekou {model_info['category']}: 文生图")
+            
+            # 获取模型类别信息
+            category = model_info.get('category', '')
+            
+            # 检查模型类型与输入是否匹配
+            if '图生图' in category and not '文生图' in category:
+                # 纯图生图模型，必须有输入图片
+                if not image_base64s:
+                    return jsonify({
+                        "success": False,
+                        "error": f"{model_info['display_name']} 是图像编辑模型，需要上传图片"
+                    }), 400
+            
+            # 调用 Jiekou 模型
+            provider = model_info['client']
+            
+            # 传递用户配置参数
+            result = provider.generate(
+                prompt=prompt,
+                image_base64s=image_base64s,
+                **model_config  # 传递用户配置参数
+            )
+            
+            if result.get('success'):
+                return jsonify({
+                    "success": True,
+                    "message": "我已经为你生成了图片：",
+                    "image_url": result['image_url'],
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": result.get('error', '生成失败')
+                }), 500
+        
+        else:
+            return jsonify({"success": False, "error": f"不支持的模型类型: {model_info['type']}"}), 400
             
     except Exception as e:
         print(f"[API] Chat Error: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        import traceback
+        traceback.print_exc()
+        
+        # 使用统一的异常处理函数
+        error_response, status_code = _handle_gemini_api_error(e)
+        return jsonify(error_response), status_code
+
+
+@app.route('/api/models', methods=['GET'])
+def list_models():
+    """列出所有可用的模型"""
+    try:
+        models = model_manager.list_models()
+        return jsonify({
+            "success": True,
+            "models": models
+        })
+    except Exception as e:
+        print(f"[API] 列出模型错误: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/models/<model_id>/config', methods=['GET'])
+def get_model_config_route(model_id):
+    """获取指定模型的配置定义"""
+    print(f"\n[API] ========== 模型配置请求 ==========")
+    print(f"[API] 请求路径: /api/models/{model_id}/config")
+    print(f"[API] 请求方法: {request.method}")
+    print(f"[API] 模型ID: {model_id}")
+    try:
+        from models.model_configs import get_model_config
+        print(f"[API] 开始获取模型配置: {model_id}")
+        config = get_model_config(model_id)
+        print(f"[API] 配置结果: {config is not None}")
+        
+        if not config:
+            print(f"[API] 模型 {model_id} 不存在")
+            return jsonify({
+                "success": False,
+                "error": f"模型 {model_id} 不存在"
+            }), 404
+        
+        return jsonify({
+            "success": True,
+            "config": config
+        })
+    except ImportError as e:
+        print(f"[API] 导入错误: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"导入模块失败: {str(e)}"
+        }), 500
+    except Exception as e:
+        print(f"[API] 获取模型配置错误: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
 @app.route('/api/remove-defects', methods=['POST'])
@@ -885,6 +1512,7 @@ def text_inpainting():
         if image_url.startswith('data:image'):
             # Base64 格式
             image_b64 = image_url.split(',')[1]
+            image_bytes = base64.b64decode(image_b64)
         elif image_url.startswith('/uploads/'):
             # 本地文件
             file_path = os.path.join(app.static_folder, image_url[1:])
@@ -895,29 +1523,164 @@ def text_inpainting():
             # URL
             proxies = {'http': None, 'https': None}
             resp = requests.get(image_url, proxies=proxies)
-            image_b64 = _bytes_to_base64(resp.content)
+            image_bytes = resp.content
+            image_b64 = _bytes_to_base64(image_bytes)
         
-        # 生成文字去除提示词
+        # 打开原图
+        original_img = Image.open(io.BytesIO(image_bytes))
+        img_width, img_height = original_img.size
+        
+        # 确保区域坐标在图片范围内
+        x = max(0, min(int(region['x']), img_width - 1))
+        y = max(0, min(int(region['y']), img_height - 1))
+        w = max(1, min(int(region['width']), img_width - x))
+        h = max(1, min(int(region['height']), img_height - y))
+        
+        print(f"[API] 调整后的区域: x={x}, y={y}, w={w}, h={h}")
+        
+        # 【关键修改】裁剪出选中区域
+        cropped_region = original_img.crop((x, y, x + w, y + h))
+        
+        # 将裁剪区域转换为base64
+        cropped_buffer = io.BytesIO()
+        cropped_region.save(cropped_buffer, format="PNG")
+        cropped_bytes = cropped_buffer.getvalue()
+        cropped_b64 = _bytes_to_base64(cropped_bytes)
+        
+        print(f"[API] 已裁剪选中区域，尺寸: {w}x{h}")
+        
+        # 生成文字去除提示词（针对整个裁剪区域，因为现在只处理这个区域）
         prompt = prompt_agent.text_inpainting_prompt(
-            x=int(region['x']),
-            y=int(region['y']),
-            width=int(region['width']),
-            height=int(region['height'])
+            x=0,  # 裁剪区域的坐标从0开始
+            y=0,
+            width=w,
+            height=h
         )
         print(f"[API] 提示词: {prompt[:150]}...")
         
-        # 调用 Gemini API
-        result_url = _gemini_edit_to_local_url(
-            prompt=prompt,
-            image_base64s=[image_b64],
-            size="1K"
-        )
+        # 【关键修改】只对裁剪区域调用 Gemini API
+        print(f"[API] 对裁剪区域进行文字去除处理...")
+        try:
+            result_url = _gemini_edit_to_local_url(
+                prompt=prompt,
+                image_base64s=[cropped_b64],
+                size="1K"
+            )
+        except Exception as api_error:
+            print(f"[API] Gemini API调用失败: {api_error}")
+            # 如果API失败，尝试使用更简单的提示词重试一次
+            print(f"[API] 尝试使用简化提示词重试...")
+            simple_prompt = f"Remove all text from this image. Fill with natural background matching the surrounding area. Output size: {w}x{h} pixels."
+            try:
+                result_url = _gemini_edit_to_local_url(
+                    prompt=simple_prompt,
+                    image_base64s=[cropped_b64],
+                    size="1K"
+                )
+            except Exception as retry_error:
+                print(f"[API] 重试也失败: {retry_error}")
+                raise Exception(f"文字去除处理失败: {str(retry_error)}")
         
-        print(f"[API] ✅ 文字去除完成: {result_url}")
+        # 获取处理后的区域图片
+        if result_url.startswith('/uploads/'):
+            processed_path = os.path.join(app.static_folder, result_url[1:])
+            if not os.path.exists(processed_path):
+                raise Exception(f"处理后的图片文件不存在: {processed_path}")
+            with open(processed_path, 'rb') as f:
+                processed_bytes = f.read()
+        else:
+            # 如果是URL，下载它
+            proxies = {'http': None, 'https': None}
+            resp = requests.get(result_url, proxies=proxies, timeout=30)
+            resp.raise_for_status()
+            processed_bytes = resp.content
+        
+        # 打开处理后的区域图片
+        processed_region = Image.open(io.BytesIO(processed_bytes))
+        
+        # 确保处理后的区域尺寸与原始区域一致（可能需要调整大小）
+        if processed_region.size != (w, h):
+            print(f"[API] 调整处理后区域尺寸: {processed_region.size} -> ({w}, {h})")
+            processed_region = processed_region.resize((w, h), Image.Resampling.LANCZOS)
+        
+        # 【关键修改】将处理后的区域替换回原图
+        # 确保原图是RGB模式（避免透明度问题）
+        if original_img.mode == 'RGBA':
+            # 如果有透明度，先转换为RGB
+            rgb_background = Image.new('RGB', original_img.size, (255, 255, 255))
+            rgb_background.paste(original_img, mask=original_img.split()[3] if original_img.mode == 'RGBA' else None)
+            original_img = rgb_background
+        elif original_img.mode != 'RGB':
+            original_img = original_img.convert('RGB')
+        
+        # 确保处理后的区域是RGB模式
+        if processed_region.mode != 'RGB':
+            processed_region = processed_region.convert('RGB')
+        
+        # 创建原图的副本
+        result_img = original_img.copy()
+        
+        # 【边缘融合处理】创建羽化mask，使边缘更平滑
+        # 创建一个边缘羽化的mask，边缘区域会有渐变过渡，使处理后的区域与原图更好融合
+        feather_size = min(8, max(3, w // 15, h // 15))  # 羽化大小：3-8像素，约为区域的6-7%
+        if feather_size >= 2 and w > feather_size * 2 and h > feather_size * 2:
+            # 创建mask
+            from PIL import ImageDraw, ImageFilter
+            mask = Image.new('L', (w, h), 255)  # 全白mask（完全不透明）
+            draw = ImageDraw.Draw(mask)
+            
+            # 创建边缘渐变：从边缘向内逐渐变透明，实现平滑融合
+            # 中心区域保持完全不透明，边缘逐渐变透明
+            for i in range(feather_size):
+                # 计算当前层的透明度（从边缘到中心逐渐增加）
+                alpha = int(255 * (i + 1) / feather_size)
+                
+                # 绘制四边的渐变条
+                # 上边缘
+                if i < h // 2:
+                    draw.rectangle([i, i, w - i, i + 1], fill=alpha)
+                # 下边缘
+                if i < h // 2:
+                    draw.rectangle([i, h - i - 1, w - i, h - i], fill=alpha)
+                # 左边缘
+                if i < w // 2:
+                    draw.rectangle([i, i, i + 1, h - i], fill=alpha)
+                # 右边缘
+                if i < w // 2:
+                    draw.rectangle([w - i - 1, i, w - i, h - i], fill=alpha)
+            
+            # 应用轻微模糊使过渡更平滑自然
+            if feather_size > 2:
+                mask = mask.filter(ImageFilter.GaussianBlur(radius=max(1, feather_size / 3)))
+            
+            # 使用mask进行融合粘贴（边缘会有渐变过渡）
+            result_img.paste(processed_region, (x, y), mask)
+            print(f"[API] 已应用边缘融合，羽化大小: {feather_size}像素")
+        else:
+            # 如果区域太小或羽化不可行，直接粘贴
+            result_img.paste(processed_region, (x, y))
+            print(f"[API] 区域较小，直接粘贴（无边缘融合）")
+        
+        # 保存最终结果
+        result_buffer = io.BytesIO()
+        result_img.save(result_buffer, format="PNG")
+        result_bytes = result_buffer.getvalue()
+        
+        # 保存到本地
+        filename = f"text_inpainting_{uuid.uuid4().hex}.png"
+        output_dir = os.path.join(app.static_folder, 'uploads')
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, filename)
+        with open(output_path, 'wb') as f:
+            f.write(result_bytes)
+        
+        final_url = f"/uploads/{filename}"
+        
+        print(f"[API] ✅ 文字去除完成: {final_url}")
         
         return jsonify({
             "success": True,
-            "image_url": result_url
+            "image_url": final_url
         })
         
     except Exception as e:
@@ -1100,6 +1863,65 @@ def apply_text_edits():
 # ==========================================
 # 测试路由
 # ==========================================
+@app.route('/api/fonts', methods=['GET'])
+def get_fonts():
+    """获取所有可用的字体列表"""
+    try:
+        fonts_dir = os.path.join(app.static_folder, 'fonts')
+        fonts_list = []
+        
+        # 基础字体（根据CSS定义）
+        base_fonts = [
+            {'name': 'MiSans', 'displayName': 'MiSans'},
+            {'name': '喜鹊招牌体', 'displayName': '喜鹊招牌体'},
+            {'name': '喜鹊聚珍体', 'displayName': '喜鹊聚珍体'}
+        ]
+        
+        # NotoSansCJK 变体（作为独立字体显示）
+        noto_variants = [
+            {'name': 'NotoSansCJK-Regular', 'displayName': 'NotoSansCJK Regular', 'family': 'NotoSansCJK', 'weight': 'normal'},
+            {'name': 'NotoSansCJK-Bold', 'displayName': 'NotoSansCJK Bold', 'family': 'NotoSansCJK', 'weight': 'bold'},
+            {'name': 'NotoSansCJK-Light', 'displayName': 'NotoSansCJK Light', 'family': 'NotoSansCJK', 'weight': '300'},
+            {'name': 'NotoSansCJK-Medium', 'displayName': 'NotoSansCJK Medium', 'family': 'NotoSansCJK', 'weight': '500'},
+            {'name': 'NotoSansCJK-Black', 'displayName': 'NotoSansCJK Black', 'family': 'NotoSansCJK', 'weight': '900'},
+            {'name': 'NotoSansCJK-DemiLight', 'displayName': 'NotoSansCJK DemiLight', 'family': 'NotoSansCJK', 'weight': '350'},
+            {'name': 'NotoSansCJK-Thin', 'displayName': 'NotoSansCJK Thin', 'family': 'NotoSansCJK', 'weight': '100'}
+        ]
+        
+        fonts_list = base_fonts + noto_variants
+        
+        # 如果fonts目录存在，扫描其他字体文件
+        if os.path.exists(fonts_dir):
+            for root, dirs, files in os.walk(fonts_dir):
+                for file in files:
+                    if file.lower().endswith(('.ttf', '.otf', '.woff', '.woff2')):
+                        # 获取相对路径
+                        rel_path = os.path.relpath(os.path.join(root, file), fonts_dir)
+                        font_name = os.path.splitext(file)[0]
+                        
+                        # 检查是否已经在列表中
+                        if not any(f['name'] == font_name for f in fonts_list):
+                            fonts_list.append({
+                                'name': font_name,
+                                'displayName': font_name,
+                                'path': f'/fonts/{rel_path}'
+                            })
+        
+        return jsonify({
+            'success': True,
+            'fonts': fonts_list
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"[字体列表] ❌ 错误: {str(e)}")
+        print(f"[字体列表] 错误详情: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'fonts': []
+        }), 500
+
 @app.route('/api/test', methods=['GET'])
 def test():
     return jsonify({
@@ -1285,17 +2107,53 @@ def batch_replace_background():
                 batch_progress[task_id]["current"] = idx + 1
                 print(f"[API] 正在处理第 {idx+1}/{len(source_files)} 张图片...")
                 
+                # 获取产品图尺寸，用于约束背景图适配
+                source_width, source_height = source_size
+                
                 # 构建提示词（每张图片独立生成，保证质量）
+                # 添加尺寸适配和内容过滤约束
+                instruction = f"""将第一张图片（背景图）的纯背景替换到第二张图片（产品图）的背景上。
+
+【关键约束 - 必须严格遵守】：
+1. **背景图内容过滤**：
+   - 只保留背景图的纯背景部分（如：天空、草地、桌面、墙面等背景元素）
+   - 必须完全移除背景图中的所有文字、logo、水印、品牌标识、产品、人物等所有非背景元素
+   - 背景图只提供背景纹理、颜色、场景，不包含任何前景内容
+
+2. **产品图保护**：
+   - 保持产品图中的产品主体、logo和文字完全不变
+   - 只替换产品图背景，产品主体必须完整保留
+
+3. **尺寸适配要求**：
+   - 输出图片必须保持产品图的原始尺寸：{source_width}×{source_height}像素
+   - 背景图必须完美适配产品图尺寸，不能出现任何变形、拉伸、压缩或扭曲
+   - 如果背景图尺寸与产品图不一致，需要智能裁剪或填充背景，确保完美适配且不变形
+   - 背景的宽高比要自然适配，不能出现明显的拉伸痕迹
+
+4. **融合要求**：
+   - 背景替换要自然融合，光影和色调要协调
+   - 背景与产品主体的衔接要自然，不能有生硬的边缘"""
+                
                 prompt = prompt_agent.replace_background_with_instruction_prompt(
-                    instruction="将第一张图片（背景图）的背景替换到第二张图片（产品图）的背景上。保持产品图中的产品主体、logo和文字不变。替换要自然融合。",
+                    instruction=instruction,
                     keep_logo='yes',
                     keep_text='yes'
                 )
                 
-                # 每次只传入背景图 + 当前原图
+                # 在提示词末尾再次强调关键约束
+                prompt += f"""
+
+[最终要求 - 必须严格遵守]：
+1. 输出图片尺寸：{source_width}×{source_height}像素（与产品图完全一致）
+2. 背景图只提供纯背景，已移除所有文字、logo、产品等非背景元素
+3. 产品图的产品主体、logo、文字完全保留
+4. 背景完美适配，无变形、无拉伸、无压缩"""
+                
+                # 图片顺序：产品图在前，背景图在后（与提示词约定一致）
+                # 提示词约定：第一张是产品图，第二张是背景图
                 api_result = gemini3_client.edit_image(
                     prompt=prompt,
-                    image_base64s=[bg_base64, source_base64],
+                    image_base64s=[source_base64, bg_base64],  # 修正顺序：产品图在前，背景图在后
                     size="1K"
                 )
                 
@@ -2031,6 +2889,13 @@ def export_logo_zip():
             'success': False,
             'error': str(e)
         }), 500
+
+# ==========================================
+# 静态文件 catch-all 路由（必须放在最后）
+# ==========================================
+@app.route('/<path:path>')
+def static_files(path):
+    return send_from_directory('static', path)
 
 # ==========================================
 # 启动服务器

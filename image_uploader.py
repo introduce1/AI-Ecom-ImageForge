@@ -6,24 +6,22 @@
 import requests
 import base64
 import json
+import os
 
 class ImageUploader:
     """图片上传器 - 支持多种图床"""
-    
+
     def __init__(self, service='imgbb'):
         """
         初始化上传器
-        
+
         Args:
             service: 图床服务名称 ('imgbb', 'imgur', 'sm.ms')
         """
         self.service = service
         self.api_keys = {
-            # ImgBB API Key (免费，需要注册：https://api.imgbb.com/)
-            'imgbb': '7088c73ab85fbb7bb94cd70f1c747eef',  # ✅ 已配置
-            
-            # Imgur Client ID (免费，需要注册：https://api.imgur.com/oauth2/addclient)
-            'imgur': '在这里填入你的Imgur_Client_ID',  # ⚠️ 替换为你的 Client ID
+            'imgbb': os.getenv("IMGBB_API_KEY", ""),
+            'imgur': os.getenv("IMGUR_CLIENT_ID", ""),
         }
         
         # ✅ 禁用代理，直连图床（避免代理连接问题）

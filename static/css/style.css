@@ -22,6 +22,7 @@
     font-style: normal;
 }
 
+/* NotoSansCJK 作为统一字体族（保持兼容性） */
 @font-face {
     font-family: 'NotoSansCJK';
     src: url('/fonts/CouPang平台韩文字体/NotoSansCJK-Regular.otf') format('opentype');
@@ -68,6 +69,56 @@
     font-family: 'NotoSansCJK';
     src: url('/fonts/CouPang平台韩文字体/NotoSansCJK-Thin.otf') format('opentype');
     font-weight: 100;
+    font-style: normal;
+}
+
+/* NotoSansCJK 各变体作为独立字体族（用于下拉选择） */
+@font-face {
+    font-family: 'NotoSansCJK-Regular';
+    src: url('/fonts/CouPang平台韩文字体/NotoSansCJK-Regular.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansCJK-Bold';
+    src: url('/fonts/CouPang平台韩文字体/NotoSansCJK-Bold.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansCJK-Light';
+    src: url('/fonts/CouPang平台韩文字体/NotoSansCJK-Light.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansCJK-Medium';
+    src: url('/fonts/CouPang平台韩文字体/NotoSansCJK-Medium.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansCJK-Black';
+    src: url('/fonts/CouPang平台韩文字体/NotoSansCJK-Black.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansCJK-DemiLight';
+    src: url('/fonts/CouPang平台韩文字体/NotoSansCJK-DemiLight.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansCJK-Thin';
+    src: url('/fonts/CouPang平台韩文字体/NotoSansCJK-Thin.otf') format('opentype');
+    font-weight: normal;
     font-style: normal;
 }
 
@@ -322,12 +373,13 @@ body {
 .chat-input-box {
     background: white;
     border-radius: 16px;
-    padding: 12px 16px;
+    padding: 16px 18px;
     display: flex;
     align-items: center;
     gap: 12px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     transition: all 0.3s;
+    min-height: 56px;
 }
 
 .chat-input-box:focus-within {
@@ -462,6 +514,42 @@ body {
     justify-content: center;
     padding: 0 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* 参考图上传区域样式 */
+.ref-image-upload-section {
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+.ref-upload-btn:hover {
+    background: #e5e7eb !important;
+    border-color: #d1d5db !important;
+}
+
+.ref-preview-item {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.ref-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ref-preview-item button {
+    transition: all 0.2s;
+}
+
+.ref-preview-item button:hover {
+    background: #dc2626 !important;
+    transform: scale(1.1);
 }
 
 .chat-plus-btn {
@@ -943,10 +1031,11 @@ body {
     margin: 0 auto;
     background: #f9f9f9;
     border-radius: 12px;
-    padding: 12px;
+    padding: 16px;
     display: flex;
     align-items: flex-end;
     gap: 10px;
+    min-height: 56px;
 }
 
 .chat-attach-btn {
@@ -3545,6 +3634,109 @@ body {
     align-items: stretch;
 }
 
+/* 戳戳秀生成器样式 */
+.poke-art-config {
+    margin-bottom: 24px;
+}
+
+.config-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.poke-art-model-wrapper {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.poke-art-select {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 14px;
+    color: #333;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'MiSans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.poke-art-select:hover {
+    border-color: #667eea;
+}
+
+.poke-art-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.poke-art-config-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.poke-art-config-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.poke-art-config-btn:active {
+    transform: translateY(0);
+}
+
+.poke-art-config-btn svg {
+    flex-shrink: 0;
+}
+
+.poke-art-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 14px;
+    color: #333;
+    background: white;
+    resize: vertical;
+    transition: all 0.3s ease;
+    font-family: 'MiSans', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+}
+
+.poke-art-textarea:hover {
+    border-color: #667eea;
+}
+
+.poke-art-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.poke-art-textarea::placeholder {
+    color: #a0aec0;
+}
+
 /* 左侧上传按钮区域 */
 .upload-btn-wrapper {
     display: flex;
@@ -3813,9 +4005,15 @@ body {
 .batch-mini-preview-item img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
     border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.batch-mini-preview-item img:hover {
+    transform: scale(1.05);
 }
 
 
@@ -3929,8 +4127,12 @@ body {
     border-radius: 10px;
     overflow: hidden;
     border: 2px solid #e8e8e8;
-    background: white;
+    background: #f5f5f5;
     transition: all 0.2s;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .batch-result-item:hover {
@@ -3941,8 +4143,15 @@ body {
 
 .batch-result-item img {
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: contain;
     display: block;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.batch-result-item img:hover {
+    transform: scale(1.05);
 }
 
 .batch-result-number {
@@ -3960,6 +4169,39 @@ body {
     font-size: 15px;
     font-weight: 700;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 2;
+}
+
+.result-item-actions {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    z-index: 2;
+}
+
+.result-item-download {
+    background: rgba(74, 144, 226, 0.95);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.result-item-download:hover {
+    background: rgba(74, 144, 226, 1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.result-item-download:active {
+    transform: translateY(0);
 }
 
 /* 下载按钮区域 */
@@ -4193,6 +4435,79 @@ body {
 }
 
 /* ==========================================
+   图片放大模态框
+   ========================================== */
+.image-lightbox {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    animation: fadeIn 0.3s ease;
+}
+
+.image-lightbox.active {
+    display: flex;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.image-lightbox-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+}
+
+.image-lightbox-content img {
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.image-lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    transition: all 0.2s;
+    z-index: 10001;
+}
+
+.image-lightbox-close:hover {
+    background: white;
+    transform: scale(1.1);
+}
+
+.image-lightbox-close:active {
+    transform: scale(0.95);
+}
+
+/* ==========================================
    Canvas 删除按钮
    ========================================== */
 .canvas-delete-btn {
@@ -4281,6 +4596,13 @@ body {
     transform: scale(1.05);
 }
 
+.color-picker-item.selected {
+    border: 3px solid #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+    transform: scale(1.1);
+    z-index: 2;
+}
+
 .color-picker-custom {
     padding-top: 12px;
     border-top: 1px solid #e8e8e8;
@@ -4340,4 +4662,616 @@ body {
     width: 16px;
     height: 3px;
     border-radius: 1px;
+}
+
+/* ==========================================
+   模型选择器样式
+   ========================================== */
+.model-selector-container {
+    position: relative;
+}
+
+/* 内联模式：放在输入框内的模型选择器 */
+.model-selector-container.model-selector-inline {
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.model-selector-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* 内联模式的按钮样式（更紧凑） */
+.model-selector-btn-inline {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    gap: 6px;
+    height: 32px;
+    box-shadow: 0 1px 4px rgba(102, 126, 234, 0.25);
+}
+
+.model-selector-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.model-selector-btn-inline:hover {
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+}
+
+.model-selector-btn:active {
+    transform: translateY(0);
+}
+
+.model-selector-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.model-selector-text {
+    font-size: 13px;
+}
+
+.model-selector-btn-inline .model-selector-text {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.model-selector-arrow {
+    transition: transform 0.3s ease;
+}
+
+.model-selector-btn.active .model-selector-arrow {
+    transform: rotate(180deg);
+}
+
+.model-selector-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 280px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    overflow: hidden;
+    animation: slideDown 0.2s ease;
+}
+
+/* 内联模式下的菜单位置调整（向上展开） */
+.model-selector-inline .model-selector-menu {
+    bottom: calc(100% + 8px);  /* 向上弹出 */
+    top: auto;
+    right: 0;
+    left: auto;
+    animation: slideUp 0.2s ease;  /* 使用向上动画 */
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 向上滑动动画（用于底部输入框的模型选择器） */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.model-selector-header {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.model-auto-switch {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    background: #fafafa;
+}
+
+.auto-switch-label {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.auto-switch-label input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.switch-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.auto-switch-label input:checked + .switch-slider {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.auto-switch-label input:checked + .switch-slider:before {
+    transform: translateX(20px);
+}
+
+.auto-switch-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.auto-switch-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.auto-switch-desc {
+    font-size: 12px;
+    color: #666;
+}
+
+.model-list {
+    padding: 8px 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.model-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.model-item:hover {
+    background: #f8f9fa;
+}
+
+.model-item.selected {
+    background: #f0f4ff;
+}
+
+.model-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.model-item-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.model-item.selected .model-item-icon {
+    color: #667eea;
+}
+
+.model-item-info {
+    flex: 1;
+}
+
+.model-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.model-item-desc {
+    font-size: 11px;
+    color: #999;
+}
+
+/* 模型项中的配置按钮 */
+.model-item-config-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: transparent;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    opacity: 0;
+}
+
+.model-item:hover .model-item-config-btn {
+    opacity: 1;
+}
+
+.model-item-config-btn:hover {
+    background: #f0f0f0;
+    color: #667eea;
+}
+
+.model-item-config-btn:active {
+    transform: scale(0.9);
+}
+
+/* ==========================================
+   模型控制组（选择器 + 配置按钮）
+   ========================================== */
+.model-controls-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.model-config-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #f5f5f5;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.model-config-btn:hover {
+    background: #e8e8e8;
+    color: #333;
+}
+
+.model-config-btn:active {
+    transform: scale(0.95);
+}
+
+/* ==========================================
+   模型配置弹窗
+   ========================================== */
+.model-config-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.model-config-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.model-config-dialog {
+    position: relative;
+    background: white;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.model-config-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e8e8e8;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.model-config-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.model-config-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    color: #999;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.model-config-close:hover {
+    background: #f5f5f5;
+    color: #333;
+}
+
+.model-config-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.config-item {
+    margin-bottom: 24px;
+}
+
+.config-item:last-child {
+    margin-bottom: 0;
+}
+
+.config-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.config-description {
+    font-size: 12px;
+    color: #999;
+    margin-top: 4px;
+}
+
+.config-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #333;
+    transition: all 0.2s ease;
+}
+
+.config-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.config-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #333;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.config-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.config-switch {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.config-switch-label {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+}
+
+.config-switch-label input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.config-switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 26px;
+}
+
+.config-switch-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.config-switch-label input:checked + .config-switch-slider {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.config-switch-label input:checked + .config-switch-slider:before {
+    transform: translateX(22px);
+}
+
+.config-switch-text {
+    font-size: 14px;
+    color: #666;
+}
+
+/* 开关+数字输入组合样式 */
+.config-switch-number {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.config-number-container {
+    margin-top: 8px;
+    transition: all 0.3s ease;
+}
+
+.config-number-container .config-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #333;
+    transition: all 0.2s ease;
+}
+
+.config-number-container .config-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.config-number-container .config-input:disabled {
+    background-color: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.model-config-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e8e8e8;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.model-config-reset-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: #f5f5f5;
+    color: #666;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.model-config-reset-btn:hover {
+    background: #e8e8e8;
+    color: #333;
+}
+
+.model-config-save-btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.model-config-save-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.model-config-save-btn:active {
+    transform: translateY(0);
+}
+
+.config-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+    font-size: 14px;
 }

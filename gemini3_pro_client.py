@@ -3,13 +3,46 @@
 # ==========================================
 
 import requests
+from requests.adapters import HTTPAdapter
 import base64
 import os
 import re
 import uuid
+import json
 from typing import List, Optional, Dict, Any
 
-GEMINI3_PRO_API_KEY = "sk_HLvA0uFTKfimSnd9-XKIvkA-EZYK6_oDqWm3WuKv5Hc"
+GEMINI3_PRO_API_KEY = os.getenv("GEMINI3_PRO_API_KEY", "")
+
+
+class GeminiAPIError(Exception):
+    """Gemini API 自定义异常基类"""
+    def __init__(self, message: str, error_code: str = None, error_reason: str = None):
+        self.message = message
+        self.error_code = error_code
+        self.error_reason = error_reason
+        super().__init__(self.message)
+    
+    def __str__(self):
+        if self.error_reason:
+            return f"{self.message} (错误代码: {self.error_code}, 原因: {self.error_reason})"
+        elif self.error_code:
+            return f"{self.message} (错误代码: {self.error_code})"
+        return self.message
+
+
+class GeminiBillingError(GeminiAPIError):
+    """计费失败错误"""
+    pass
+
+
+class GeminiQuotaExceededError(GeminiAPIError):
+    """配额超限错误"""
+    pass
+
+
+class GeminiTaskFailedError(GeminiAPIError):
+    """任务失败错误 (TASK_FAILED)"""
+    pass
 
 
 def _collect_strings(obj):
@@ -39,26 +72,102 @@ def _detect_ext_from_bytes(image_bytes: bytes) -> str:
 
 
 def _save_bytes(image_bytes: bytes, output_dir: str, filename_hint: str) -> str:
-    os.makedirs(output_dir, exist_ok=True)
+    # 优化：移除重复的目录创建（已在调用处处理）
     ext = _detect_ext_from_bytes(image_bytes)
     filename = f"{filename_hint}_{uuid.uuid4().hex}.{ext}"
     file_path = os.path.join(output_dir, filename)
+    # 优化：使用默认缓冲（-1），让系统自动优化写入速度
     with open(file_path, "wb") as f:
         f.write(image_bytes)
     return filename
 
 class Gemini3ProClient:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, max_retries: int = 3, retry_delay: float = 2.0):
         """
         初始化 Gemini 3 Pro 客户端
         
         Args:
             api_key: API 密钥 (Authorization header)
+            max_retries: 最大重试次数（针对临时性网络错误）
+            retry_delay: 初始重试延迟（秒），使用指数退避策略
         """
         if not api_key:
             raise ValueError("缺少 API Key")
         self.api_key = api_key
         self.base_url = "https://api.jiekou.ai/v3/gemini-3-pro-image-edit"
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        self.session = requests.Session()
+        self.session.trust_env = False  # 禁用系统代理，避免额外握手开销
+        adapter = HTTPAdapter(pool_connections=20, pool_maxsize=20, max_retries=0)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+    
+    @staticmethod
+    def _validate_and_sanitize_prompt(prompt: str) -> str:
+        """
+        验证和清理prompt
+        
+        Args:
+            prompt: 原始prompt
+            
+        Returns:
+            清理后的prompt
+            
+        Raises:
+            ValueError: 如果prompt无效
+        """
+        if not prompt or not prompt.strip():
+            raise ValueError("Prompt不能为空")
+        
+        # 去除首尾空格
+        prompt = prompt.strip()
+        
+        # 长度限制（根据API文档调整）
+        max_length = 2000
+        if len(prompt) > max_length:
+            print(f"警告: Prompt过长({len(prompt)}字符)，将截断到{max_length}字符")
+            prompt = prompt[:max_length]
+        
+        # 清理控制字符（保留换行符）
+        import re
+        prompt = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', prompt)
+        
+        return prompt
+    
+    def _should_retry_error(self, error: Exception) -> bool:
+        """
+        判断错误是否应该重试
+        
+        Args:
+            error: 异常对象
+            
+        Returns:
+            是否应该重试
+        """
+        # SSL错误、连接错误、超时错误可以重试
+        if isinstance(error, (requests.exceptions.SSLError, 
+                            requests.exceptions.ConnectionError,
+                            requests.exceptions.Timeout)):
+            return True
+        
+        # HTTP 5xx错误（服务器错误）可以重试，但不包括502, 503（可能是服务维护）
+        if isinstance(error, requests.exceptions.RequestException):
+            if hasattr(error, 'response') and error.response is not None:
+                status_code = error.response.status_code
+                # 500, 504可以重试
+                if status_code in [500, 504]:
+                    try:
+                        response_json = error.response.json()
+                        reason = response_json.get('reason', '')
+                        # TASK_FAILED可以重试，但BILLING_FAILED不能
+                        if reason in ['BILLING_FAILED', 'QUOTA_EXCEEDED']:
+                            return False
+                        return True
+                    except:
+                        return True
+        
+        return False
         
     def edit_image(
         self,
@@ -81,6 +190,12 @@ class Gemini3ProClient:
         Returns:
             API 响应结果
         """
+        # 验证和清理prompt
+        try:
+            prompt = self._validate_and_sanitize_prompt(prompt)
+        except ValueError as e:
+            raise GeminiAPIError(str(e)) from e
+        
         # 构建请求数据
         payload = {
             "prompt": prompt
@@ -106,39 +221,106 @@ class Gemini3ProClient:
             "Content-Type": "application/json"
         }
         
-        try:
-            # 禁用代理，直连 API（避免代理连接问题）
-            proxies = {
-                'http': None,
-                'https': None
-            }
-            
-            # 发送 POST 请求，增加超时时间
-            # timeout=(连接超时, 读取超时) - 连接超时30秒，读取超时300秒（5分钟）
-            response = requests.post(
-                self.base_url,
-                headers=headers,
-                json=payload,
-                timeout=(30, 300),  # (connect timeout, read timeout)
-                proxies=proxies
-            )
-            
-            # 检查响应状态
-            response.raise_for_status()
-            
-            return response.json()
-            
-        except requests.exceptions.Timeout as e:
+        # 实现重试机制
+        last_error = None
+        current_delay = self.retry_delay
+        
+        # 添加时间统计
+        import time
+        api_start_time = time.time()
+        
+        for attempt in range(self.max_retries):
+            try:
+                # 发送 POST 请求，优化超时时间
+                # timeout=(连接超时, 读取超时) - 连接超时15秒，读取超时180秒（3分钟）
+                # 优化：减少超时时间，加快失败检测
+                response = self.session.post(
+                    self.base_url,
+                    headers=headers,
+                    json=payload,
+                    timeout=(15, 180),  # (connect timeout, read timeout) - 优化：从300秒降到180秒
+                )
+                
+                # 检查响应状态
+                response.raise_for_status()
+                
+                api_elapsed = time.time() - api_start_time
+                if api_elapsed > 10:  # 只记录超过10秒的请求
+                    print(f"[Gemini API] ⏱️ API响应时间: {api_elapsed:.1f}秒")
+                
+                return response.json()
+                
+            except requests.exceptions.RequestException as e:
+                last_error = e
+                
+                # 判断是否应该重试
+                should_retry = self._should_retry_error(e)
+                is_last_attempt = (attempt == self.max_retries - 1)
+                
+                if should_retry and not is_last_attempt:
+                    # 打印重试信息
+                    error_type = type(e).__name__
+                    print(f"API 请求失败 ({error_type})，{current_delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries})...")
+                    
+                    import time
+                    time.sleep(current_delay)
+                    current_delay *= 2  # 指数退避
+                    continue
+                else:
+                    # 不应重试或已达最大重试次数，进行错误处理
+                    break
+        
+        # 处理最终错误
+        e = last_error
+        if isinstance(e, requests.exceptions.Timeout):
             error_msg = f"API 请求超时: {e}"
             print(f"API 请求失败: {error_msg}")
             print("提示: 图片可能过大或网络连接较慢，请稍后重试")
             raise requests.exceptions.RequestException(error_msg) from e
-        except requests.exceptions.RequestException as e:
-            print(f"API 请求失败: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                print(f"响应状态码: {e.response.status_code}")
-                print(f"响应内容: {e.response.text}")
-            raise
+        
+        # 其他RequestException错误
+        print(f"API 请求失败: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            status_code = e.response.status_code
+            response_text = e.response.text
+            print(f"响应状态码: {status_code}")
+            print(f"响应内容: {response_text}")
+            
+            # 尝试解析错误响应，识别特定错误类型
+            try:
+                error_data = json.loads(response_text)
+                error_code = error_data.get('code')
+                error_reason = error_data.get('reason')
+                error_message = error_data.get('message', '')
+                error_details = error_data.get('metadata', {}).get('details', '')
+                
+                # 根据错误类型抛出相应的自定义异常
+                if error_reason == 'BILLING_FAILED':
+                    user_message = "API服务商计费系统暂时出现问题，请稍后重试。如果问题持续，请联系服务商检查账户状态。"
+                    raise GeminiBillingError(user_message, error_code, error_reason) from e
+                    
+                elif error_reason == 'QUOTA_EXCEEDED' or 'quota' in error_message.lower():
+                    user_message = "API调用配额已用完，请检查账户余额或等待配额重置。"
+                    raise GeminiQuotaExceededError(user_message, error_code, error_reason) from e
+                    
+                elif error_reason == 'TASK_FAILED':
+                    # 任务失败，通常与prompt或图片有关
+                    user_message = f"AI处理任务失败: {error_message}"
+                    if error_details:
+                        user_message += f" ({error_details})"
+                    raise GeminiTaskFailedError(user_message, error_code, error_reason) from e
+                    
+                elif error_code:
+                    # 其他已知错误代码
+                    user_message = error_message or f"API返回错误 (代码: {error_code})"
+                    raise GeminiAPIError(user_message, error_code, error_reason) from e
+                    
+            except (json.JSONDecodeError, KeyError):
+                # 如果无法解析JSON，使用原始错误信息
+                pass
+        
+        # 如果没有识别到特定错误，抛出原始异常
+        raise
 
     def edit_image_to_bytes(
         self,
@@ -156,41 +338,50 @@ class Gemini3ProClient:
             size=size,
         )
 
-        strings = list(_collect_strings(result))
-
         url_re = re.compile(r"https?://[^\s\"\']+")
         url_candidates = []
-        for s in strings:
+
+        # 优先尝试base64（避免网络延迟），并收集URL候选
+        for s in _collect_strings(result):
+            if not s:
+                continue
+            if s.startswith("data:image/") and ";base64," in s:
+                b64 = s.split(";base64,", 1)[1]
+            elif len(s) > 512 and re.fullmatch(r"[A-Za-z0-9+/=\s]+", s or ""):
+                b64 = s.strip()
+            else:
+                b64 = None
+
+            if b64:
+                try:
+                    image_bytes = base64.b64decode(b64, validate=False)
+                    if image_bytes and len(image_bytes) > 1000:  # 确保是有效的图片数据
+                        return image_bytes
+                except Exception:
+                    # 静默失败，继续尝试其他候选
+                    pass
+
             for u in url_re.findall(s):
                 url_candidates.append(u.rstrip(")]}>.,\""))
-
-        # 禁用代理下载图片
-        proxies = {'http': None, 'https': None}
         
         for url in url_candidates:
             try:
-                resp = requests.get(url, timeout=(30, 120), proxies=proxies)  # 增加下载超时时间
-                if resp.status_code == 200 and resp.content:
-                    return resp.content
+                # 优化：减少超时时间，使用流式下载
+                resp = self.session.get(url, timeout=(5, 30), stream=True)  # 优化：从60秒降到30秒，使用流式下载
+                if resp.status_code == 200:
+                    # 流式读取，避免一次性加载大文件到内存
+                    content = bytearray()
+                    for chunk in resp.iter_content(chunk_size=65536):
+                        if chunk:
+                            content.extend(chunk)
+                    if content:
+                        return bytes(content)
             except requests.exceptions.Timeout:
-                print(f"下载图片超时: {url}，尝试下一个URL")
-                continue
-            except requests.exceptions.RequestException as e:
-                print(f"下载图片失败: {url}, 错误: {e}，尝试下一个URL")
-                continue
+                continue  # 静默失败，尝试下一个URL
+            except requests.exceptions.RequestException:
+                continue  # 静默失败，尝试下一个URL
 
-        base64_candidates = []
-        for s in strings:
-            if s.startswith("data:image/") and ";base64," in s:
-                base64_candidates.append(s.split(";base64,", 1)[1])
-            elif len(s) > 512 and re.fullmatch(r"[A-Za-z0-9+/=\s]+", s or ""):
-                base64_candidates.append(s.strip())
-
-        for b64 in base64_candidates:
-            image_bytes = base64.b64decode(b64, validate=False)
-            if image_bytes:
-                return image_bytes
-
+        # base64已经在上面处理过了，这里只作为最后的fallback
         raise ValueError("未能从 Gemini 响应中提取图片")
 
     def edit_image_to_uploads_url(
@@ -214,16 +405,13 @@ class Gemini3ProClient:
         )
 
         output_dir = os.path.join(static_folder, uploads_subdir)
-        # 确保目录存在
-        os.makedirs(output_dir, exist_ok=True)
+        # 优化：只在目录不存在时创建（避免每次都检查）
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+        
         filename = _save_bytes(image_bytes, output_dir=output_dir, filename_hint=filename_hint)
         
-        # 验证文件是否成功保存
-        file_path = os.path.join(output_dir, filename)
-        if not os.path.exists(file_path):
-            raise RuntimeError(f"文件保存失败: {file_path}")
-        
-        print(f"[文件保存] 成功保存到: {file_path}")
+        # 优化：移除文件验证（保存成功即返回，减少IO操作）
         return f"{url_prefix}/{filename}"
 
     def generate(
@@ -251,6 +439,9 @@ class Gemini3ProClient:
                 filename_hint=filename_hint,
             )
             return {"success": True, "image_url": image_url}
+        except (GeminiBillingError, GeminiQuotaExceededError, GeminiAPIError) as e:
+            # 让自定义异常向上传播，以便上层可以识别并处理
+            raise
         except Exception as e:
             return {"success": False, "error": str(e)}
     
@@ -433,8 +624,26 @@ class ImageEditingPrompts:
 5. 输出图片必须与基础图片尺寸完全相同"""
     
     def text_inpainting_prompt(self, x: int, y: int, width: int, height: int) -> str:
-        """文字去除提示词 - 智能修复指定区域"""
-        return f"""请对这张图片进行智能修复处理：
+        """文字去除提示词 - 智能修复指定区域
+        
+        注意：当x=0, y=0时，表示这是裁剪后的区域图片，需要处理整个图片
+        """
+        if x == 0 and y == 0:
+            # 这是裁剪后的区域图片，需要处理整个图片
+            return f"""这是从原图中裁剪出来的区域。请移除图片中的所有文字和字符，并用与原图完美匹配的自然背景填充文字区域。
+
+关键要求：
+1. 该区域的边缘在放回原图时必须无缝融合
+2. 保持原图的精确颜色渐变和纹理
+3. 确保所有边缘（上、下、左、右）都有平滑过渡
+4. 背景应该看起来连续，就像这个区域从未从原图中分离过一样
+5. 边缘不能有可见的接缝、颜色不匹配或纹理不连续
+6. 保持精确的输出尺寸：{width}x{height}像素
+
+处理结果必须看起来就像从未被裁剪和处理过一样 - 放回原图时应该完美匹配。"""
+        else:
+            # 这是原图中的某个区域
+            return f"""请对这张图片进行智能修复处理：
 
 [任务] 移除指定区域内的所有文字，并用自然的背景填充
 
